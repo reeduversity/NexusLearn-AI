@@ -1,9 +1,15 @@
 'use client'
 
-import { Bell, Search, Menu, Plus } from 'lucide-react'
+import { useState } from 'react'
+import { Bell, Search, Menu, Plus, User, Settings, LogOut, FileText, Calendar, Users, BookOpen } from 'lucide-react'
 import { logout } from '@/actions/auth'
+import Link from 'next/link'
 
 export default function TopNavbar() {
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [isNotifOpen, setIsNotifOpen] = useState(false)
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+
   return (
     <nav className="fixed top-0 z-50 w-full border-b border-white/20 bg-white/60 backdrop-blur-xl dark:border-zinc-800/50 dark:bg-zinc-950/60 shadow-[0_4px_30px_rgb(0,0,0,0.02)] transition-all duration-300">
       <div className="px-4 py-3 lg:px-6">
@@ -13,17 +19,17 @@ export default function TopNavbar() {
               <span className="sr-only">Open sidebar</span>
               <Menu className="h-6 w-6" />
             </button>
-            <a href="/dashboard" className="ms-2 flex md:me-24 items-center gap-2 group">
+            <Link href="/dashboard" className="ms-2 flex md:me-24 items-center gap-2 group">
               <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-500/20 group-hover:shadow-indigo-500/40 transition-all duration-300 group-hover:scale-105">
                 <span className="text-white font-bold text-lg">N</span>
               </div>
               <span className="self-center whitespace-nowrap text-xl font-bold tracking-tight text-gray-900 dark:text-white">
                 Nexus<span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">Learn</span> <span className="text-sm font-semibold bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full ml-1">AI</span>
               </span>
-            </a>
+            </Link>
           </div>
 
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-4 md:gap-5">
             <div className="hidden md:block">
               <div className="relative group">
                 <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-4">
@@ -36,27 +42,79 @@ export default function TopNavbar() {
               </div>
             </div>
 
-            <button type="button" className="relative rounded-full p-2.5 text-gray-500 hover:bg-gray-100/80 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-zinc-800/80 dark:hover:text-white transition-all duration-300 hover:scale-105">
-              <Plus className="h-5 w-5" />
-            </button>
+            {/* Create Menu */}
+            <div className="relative">
+              <button onClick={() => {setIsCreateOpen(!isCreateOpen); setIsNotifOpen(false); setIsProfileOpen(false)}} type="button" className="relative rounded-full p-2.5 text-gray-500 hover:bg-gray-100/80 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-zinc-800/80 dark:hover:text-white transition-all duration-300 hover:scale-105">
+                <Plus className="h-5 w-5" />
+              </button>
+              {isCreateOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-zinc-900 rounded-xl shadow-lg border border-gray-100 dark:border-zinc-800 py-2">
+                  <div className="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Create New</div>
+                  <Link href="/planner" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800"><Calendar className="w-4 h-4 mr-3 text-indigo-500" /> Study Plan</Link>
+                  <Link href="/study/summarizer" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800"><FileText className="w-4 h-4 mr-3 text-emerald-500" /> Summary</Link>
+                  <Link href="/groups" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800"><Users className="w-4 h-4 mr-3 text-orange-500" /> Study Group</Link>
+                </div>
+              )}
+            </div>
 
-            <button type="button" className="relative rounded-full p-2.5 text-gray-500 hover:bg-gray-100/80 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-zinc-800/80 dark:hover:text-white transition-all duration-300 hover:scale-105">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-2 right-2.5 flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white dark:border-zinc-950"></span>
-              </span>
-            </button>
-            
-            <div className="flex items-center ms-2 pl-4 border-l border-gray-200 dark:border-zinc-800">
-              <form action={logout}>
-                <button type="submit" className="flex rounded-full bg-gray-800 text-sm focus:ring-4 focus:ring-indigo-500/30 transition-all duration-300 hover:scale-105 hover:ring-2 hover:ring-indigo-500/50 shadow-md">
-                  <span className="sr-only">Logout</span>
-                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
-                    U
+            {/* Notifications Menu */}
+            <div className="relative">
+              <button onClick={() => {setIsNotifOpen(!isNotifOpen); setIsCreateOpen(false); setIsProfileOpen(false)}} type="button" className="relative rounded-full p-2.5 text-gray-500 hover:bg-gray-100/80 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-zinc-800/80 dark:hover:text-white transition-all duration-300 hover:scale-105">
+                <Bell className="h-5 w-5" />
+                <span className="absolute top-2 right-2.5 flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white dark:border-zinc-950"></span>
+                </span>
+              </button>
+              {isNotifOpen && (
+                <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-zinc-900 rounded-xl shadow-lg border border-gray-100 dark:border-zinc-800 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 dark:border-zinc-800 font-semibold text-gray-900 dark:text-white">Notifications</div>
+                  <div className="divide-y divide-gray-100 dark:divide-zinc-800 max-h-64 overflow-y-auto">
+                    <div className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-zinc-800/50 cursor-pointer">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">Welcome to NexusLearn AI! 🎉</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Get started by creating your first study plan.</p>
+                    </div>
+                    <div className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-zinc-800/50 cursor-pointer">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">New mock tests available</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Check out the new practice tests for your subjects.</p>
+                    </div>
                   </div>
-                </button>
-              </form>
+                </div>
+              )}
+            </div>
+            
+            {/* User Profile Menu */}
+            <div className="relative flex items-center ms-2 pl-4 border-l border-gray-200 dark:border-zinc-800">
+              <button onClick={() => {setIsProfileOpen(!isProfileOpen); setIsCreateOpen(false); setIsNotifOpen(false)}} type="button" className="flex rounded-full bg-gray-800 text-sm focus:ring-4 focus:ring-indigo-500/30 transition-all duration-300 hover:scale-105 hover:ring-2 hover:ring-indigo-500/50 shadow-md">
+                <span className="sr-only">Open user menu</span>
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                  U
+                </div>
+              </button>
+              
+              {isProfileOpen && (
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-zinc-900 rounded-xl shadow-lg border border-gray-100 dark:border-zinc-800 py-1 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 dark:border-zinc-800">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">Student User</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">student@nexuslearn.ai</p>
+                  </div>
+                  <div className="py-1">
+                    <Link href="/profile" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800">
+                      <User className="w-4 h-4 mr-3 text-gray-400" /> My Profile
+                    </Link>
+                    <Link href="/settings" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800">
+                      <Settings className="w-4 h-4 mr-3 text-gray-400" /> Settings
+                    </Link>
+                  </div>
+                  <div className="py-1 border-t border-gray-100 dark:border-zinc-800">
+                    <form action={logout}>
+                      <button type="submit" className="flex w-full items-center px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10">
+                        <LogOut className="w-4 h-4 mr-3" /> Sign out
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -64,3 +122,4 @@ export default function TopNavbar() {
     </nav>
   )
 }
+

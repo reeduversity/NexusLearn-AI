@@ -89,6 +89,13 @@ Follow these instructions to set up the project locally on your machine.
 
 Contributions are always welcome! Please feel free to submit a Pull Request if you'd like to improve the project.
 
+## 👨‍💻 Developed By
+
+**Ram Bhajan**  
+*Full Stack Developer & Visionary behind NexusLearn AI*
+
+---
+
 ## 📄 License
 
 This project is licensed under the MIT License.

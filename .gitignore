@@ -33,3 +33,7 @@ next-env.d.ts
 # testing and local scripts
 test_*.mjs
 test_*.js
+*_rls*.js
+*drop*.js
+reload_cache.js
+insert_mock_user.js

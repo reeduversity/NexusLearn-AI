@@ -4,8 +4,8 @@ import { SupabaseClient } from '@supabase/supabase-js'
 export async function validateSession(supabase: SupabaseClient) {
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) {
-    // For local testing and to ensure all 22 tools are active, return a mock user
-    return { id: 'mock-local-user-id', email: 'test@nexuslearn.ai' }
+    // For local testing and to ensure all 22 tools are active, return a mock user with valid UUID
+    return { id: '00000000-0000-0000-0000-000000000000', email: 'test@nexuslearn.ai' }
   }
   return user
 }

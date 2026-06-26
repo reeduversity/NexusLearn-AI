@@ -1,0 +1,30 @@
+{
+  "name": "NexusLearn AI",
+  "short_name": "NexusLearn",
+  "description": "AI-powered study platform — notes, quizzes, viva, and more.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "shortcuts": [
+    { "name": "Notes", "url": "/notes", "description": "Open your notes" },
+    { "name": "Flashcards", "url": "/flashcards", "description": "Review flashcards" },
+    { "name": "Viva Mode", "url": "/viva", "description": "Practice viva" }
+  ]
+}

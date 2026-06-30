@@ -100,8 +100,7 @@ export async function sendPasswordResetLink(formData: FormData) {
 
   const user = await prisma.user.findUnique({ where: { email } })
   if (!user) {
-    // Return success even if user not found to prevent email enumeration
-    return { success: true }
+    return { error: 'No account found with this email address.' }
   }
 
   const token = crypto.randomUUID()
@@ -147,7 +146,7 @@ export async function sendPasswordResetLink(formData: FormData) {
       console.log('Reset URL:', resetUrl)
     }
 
-    return { success: true }
+    return { success: true, resetUrl: process.env.SMTP_USER ? undefined : resetUrl }
   } catch (error) {
     console.error('Error sending email:', error)
     return { error: 'Failed to send reset email. Please try again later.' }

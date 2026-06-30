@@ -6,6 +6,7 @@ import { sendPasswordResetLink } from '@/actions/auth'
 export default function ForgotPasswordPage() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
+  const [resetUrl, setResetUrl] = useState('')
 
   async function handleSubmit(formData: FormData) {
     setStatus('loading')
@@ -16,6 +17,9 @@ export default function ForgotPasswordPage() {
       setErrorMessage(res.error)
       setStatus('error')
     } else {
+      if (res?.resetUrl) {
+        setResetUrl(res.resetUrl)
+      }
       setStatus('success')
     }
   }
@@ -35,10 +39,18 @@ export default function ForgotPasswordPage() {
         {status === 'success' ? (
           <div className="rounded-md bg-green-50 dark:bg-green-900/30 p-4">
             <div className="flex">
-              <div className="ml-3">
+              <div className="ml-3 w-full">
                 <h3 className="text-sm font-medium text-green-800 dark:text-green-300">Reset Link Sent</h3>
                 <div className="mt-2 text-sm text-green-700 dark:text-green-400">
-                  <p>Check your email for the password reset link. If you don't see it, check your spam folder. Note: In development mode, check the server terminal for the link.</p>
+                  <p>Check your email for the password reset link. If you don't see it, check your spam folder.</p>
+                  {resetUrl && (
+                    <div className="mt-4 p-3 bg-white dark:bg-zinc-800 rounded border border-green-200 dark:border-green-800 break-all">
+                      <p className="font-semibold mb-1 text-gray-900 dark:text-white">Development Link:</p>
+                      <a href={resetUrl} className="text-indigo-600 dark:text-indigo-400 hover:underline">
+                        {resetUrl}
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

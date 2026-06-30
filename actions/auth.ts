@@ -8,7 +8,7 @@ import bcrypt from 'bcrypt'
 import crypto from 'crypto'
 
 export async function login(formData: FormData) {
-  const email = formData.get('email') as string
+  const email = (formData.get('email') as string)?.toLowerCase()
   const password = formData.get('password') as string
 
   if (!email || !password) {
@@ -41,7 +41,7 @@ export async function login(formData: FormData) {
 
 export async function signup(formData: FormData) {
   const name = formData.get('name') as string
-  const email = formData.get('email') as string
+  const email = (formData.get('email') as string)?.toLowerCase()
   const password = formData.get('password') as string
   const university = formData.get('university') as string
   const course = formData.get('course') as string
@@ -95,7 +95,7 @@ export async function logout() {
 }
 
 export async function sendPasswordResetLink(formData: FormData) {
-  const email = formData.get('email') as string
+  const email = (formData.get('email') as string)?.toLowerCase()
   if (!email) return { error: 'Email is required' }
 
   const user = await prisma.user.findUnique({ where: { email } })
@@ -127,9 +127,11 @@ export async function sendPasswordResetLink(formData: FormData) {
       },
     })
 
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/reset-password?token=${token}`
+    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${token}`
 
-    if (process.env.SMTP_USER && process.env.SMTP_PASSWORD) {
+    const isSmtpConfigured = process.env.SMTP_USER && process.env.SMTP_USER !== 'your-email@gmail.com'
+
+    if (isSmtpConfigured) {
       await transporter.sendMail({
         from: `"NexusLearn AI" <${process.env.SMTP_USER}>`,
         to: email,
@@ -146,7 +148,7 @@ export async function sendPasswordResetLink(formData: FormData) {
       console.log('Reset URL:', resetUrl)
     }
 
-    return { success: true, resetUrl: process.env.SMTP_USER ? undefined : resetUrl }
+    return { success: true, resetUrl: isSmtpConfigured ? undefined : resetUrl }
   } catch (error) {
     console.error('Error sending email:', error)
     return { error: 'Failed to send reset email. Please try again later.' }

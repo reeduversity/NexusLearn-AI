@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth-helpers'
 import { StatCard } from '@/components/dashboard/stat-card'
 import { BookOpen, Target, Flame, Timer, AlertCircle, FileText, Calendar, Sparkles, ArrowRight } from 'lucide-react'
+import Link from 'next/link'
 
 export const metadata = {
   title: 'Dashboard | NexusLearn AI',
@@ -60,12 +61,12 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="flex space-x-3">
-          <button className="group relative inline-flex items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 px-6 py-3 font-semibold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:scale-105 hover:shadow-indigo-500/50">
+          <Link href="/planner" className="group relative inline-flex items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 px-6 py-3 font-semibold text-white shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:scale-105 hover:shadow-indigo-500/50">
             <span className="relative flex items-center gap-2">
                <Timer className="w-5 h-5" />
               Start Focus Session
             </span>
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -87,9 +88,9 @@ export default async function DashboardPage() {
                 </div>
                 Weak Topics to Revise
               </h2>
-              <button className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 flex items-center gap-1 group/btn">
+              <Link href="/analytics" className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 flex items-center gap-1 group/btn">
                 View All Analytics <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-              </button>
+              </Link>
             </div>
             <div className="space-y-4 relative z-10">
               <div className="p-5 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-zinc-900/50 dark:to-zinc-800/50 border border-gray-200/50 dark:border-zinc-700/50 flex flex-col items-center justify-center text-center">
@@ -98,9 +99,9 @@ export default async function DashboardPage() {
                 </div>
                 <h3 className="font-semibold text-gray-900 dark:text-gray-100">No Weak Topics Identified</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-sm">Your AI engine is currently analyzing your quizzes to determine weak areas. Take a quiz to generate insights!</p>
-                <button className="mt-4 px-4 py-2 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors shadow-sm">
+                <Link href="/mock-tests" className="mt-4 px-4 py-2 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors shadow-sm inline-block">
                   Take a Mock Test
-                </button>
+                </Link>
               </div>
             </div>
           </div>
@@ -118,7 +119,7 @@ export default async function DashboardPage() {
             <div className="space-y-3 relative z-10">
               {recentNotes && recentNotes.length > 0 ? (
                 recentNotes.map((note: any) => (
-                  <div key={note.id} className="flex justify-between items-center p-4 bg-white/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-800 rounded-xl cursor-pointer transition-all duration-300 border border-gray-100 dark:border-zinc-800/50 hover:shadow-md hover:scale-[1.01] group/item">
+                  <Link href="/study" key={note.id} className="flex justify-between items-center p-4 bg-white/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-800 rounded-xl cursor-pointer transition-all duration-300 border border-gray-100 dark:border-zinc-800/50 hover:shadow-md hover:scale-[1.01] group/item">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-500">
                         <BookOpen className="w-4 h-4" />
@@ -126,7 +127,7 @@ export default async function DashboardPage() {
                       <span className="font-semibold text-gray-900 dark:text-gray-100 group-hover/item:text-indigo-600 dark:group-hover/item:text-indigo-400 transition-colors">{note.title}</span>
                     </div>
                     <span className="text-xs font-medium text-gray-500 bg-gray-100 dark:bg-zinc-800 px-2.5 py-1 rounded-full">{new Date(note.createdAt).toLocaleDateString()}</span>
-                  </div>
+                  </Link>
                 ))
               ) : (
                 <div className="p-4 text-center text-sm text-gray-500 italic bg-gray-50/50 dark:bg-zinc-900/30 rounded-xl border border-dashed border-gray-200 dark:border-zinc-800">No notes generated yet. Upload a PDF to start!</div>
@@ -174,10 +175,10 @@ export default async function DashboardPage() {
               </div>
               <h2 className="text-xl font-extrabold mb-2 text-white">Daily AI Challenge</h2>
               <p className="text-sm text-indigo-100 mb-6 leading-relaxed">Complete 5 Physics flashcards to maintain your learning streak and unlock a badge.</p>
-              <button className="w-full py-3 bg-white text-indigo-700 font-bold rounded-xl hover:bg-gray-50 hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2 group/btn">
+              <Link href="/practice" className="w-full py-3 bg-white text-indigo-700 font-bold rounded-xl hover:bg-gray-50 hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2 group/btn">
                 Accept Challenge
                 <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-              </button>
+              </Link>
             </div>
           </div>
         </div>

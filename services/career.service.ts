@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 
 export class CareerService {
   /**
@@ -45,27 +45,19 @@ Be thorough and specific. Evaluate against common ATS parsing standards and indu
     const analysis = JSON.parse(data.choices[0].message.content)
 
     // Save report to database
-    const supabase = await createClient()
-    const { data: report, error } = await supabase
-      .from('ats_reports')
-      .insert({
-        user_id: userId,
-        resume_text: resumeText,
+    const report = await prisma.atsReport.create({
+      data: {
+        userId,
+        resumeText,
         score: analysis.score,
         summary: analysis.summary,
         strengths: analysis.strengths,
         suggestions: analysis.suggestions,
-        missing_keywords: analysis.missing_keywords,
-        formatting_issues: analysis.formatting_issues,
-        section_scores: analysis.section_scores,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Failed to save ATS report:', error)
-      throw new Error('Failed to save ATS report')
-    }
+        missingKeywords: analysis.missing_keywords,
+        formattingIssues: analysis.formatting_issues,
+        sectionScores: analysis.section_scores,
+      },
+    })
 
     return { ...analysis, id: report.id }
   }

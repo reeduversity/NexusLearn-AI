@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import { redirect } from 'next/navigation'
 import {
   FlaskConical,
@@ -16,18 +17,16 @@ import {
 export const metadata = { title: 'Research Hub | NexusLearn AI' }
 
 export default async function ResearchPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
   if (!user) {
     redirect('/login')
   }
 
-  const { data: projects } = await supabase
-    .from('research_projects')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
+  const projects = await prisma.researchProject.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: 'desc' }
+  })
 
   const tools = [
     {
@@ -157,13 +156,13 @@ export default async function ResearchPage() {
                       {project.title}
                     </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {new Date(project.created_at).toLocaleDateString('en-US', {
+                      {new Date(project.createdAt).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',
                       })}
-                      {project.sources_count && (
-                        <span className="ml-2">· {project.sources_count} source{project.sources_count !== 1 ? 's' : ''}</span>
+                      {project.sourcesCount && (
+                        <span className="ml-2">· {project.sourcesCount} source{project.sourcesCount !== 1 ? 's' : ''}</span>
                       )}
                     </p>
                   </div>

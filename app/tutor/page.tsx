@@ -1,12 +1,10 @@
-import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import { TutorClient } from '@/components/tutor/tutor-client'
-import { validateSession } from '@/lib/api-helper'
 
 export const metadata = { title: 'AI Tutor | NexusLearn AI' }
 
 export default async function AITutorPage() {
-  const supabase = await createClient()
-  const user = await validateSession(supabase)
+  const user = await getCurrentUser()
 
   if (!user) {
     return (

@@ -1,13 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import { WellbeingService } from '@/services/wellbeing.service'
 
 export async function logMood(formData: FormData) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
+  const user = await getCurrentUser()
   if (!user) return { error: 'Not authenticated' }
 
   const mood = Number(formData.get('mood'))
@@ -29,9 +28,7 @@ export async function logMood(formData: FormData) {
 }
 
 export async function sendWellbeingMessage(message: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
+  const user = await getCurrentUser()
   if (!user) return { error: 'Not authenticated' }
 
   const reply = await WellbeingService.getWellbeingAdvice(user.id, message)
@@ -39,9 +36,7 @@ export async function sendWellbeingMessage(message: string) {
 }
 
 export async function addBudgetEntry(formData: FormData) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
+  const user = await getCurrentUser()
   if (!user) return { error: 'Not authenticated' }
 
   const amount = Number(formData.get('amount'))
@@ -53,43 +48,45 @@ export async function addBudgetEntry(formData: FormData) {
   if (!category) return { error: 'Category is required' }
   if (!['income', 'expense'].includes(type)) return { error: 'Invalid type' }
 
-  const { error } = await supabase.from('budget_entries').insert({
-    user_id: user.id,
-    amount,
-    category,
-    type,
-    description,
-    created_at: new Date().toISOString(),
-  })
-
-  if (error) return { error: error.message }
+  try {
+    await prisma.budgetEntry.create({
+      data: {
+        userId: user.id,
+        amount,
+        category,
+        type,
+        description,
+      },
+    })
+  } catch (error: any) {
+    return { error: error.message }
+  }
 
   revalidatePath('/finance')
   return { success: true }
 }
 
 export async function saveFocusSession(durationMinutes: number) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
+  const user = await getCurrentUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { error } = await supabase.from('focus_sessions').insert({
-    user_id: user.id,
-    duration_minutes: durationMinutes,
-    created_at: new Date().toISOString(),
-  })
-
-  if (error) return { error: error.message }
+  try {
+    await prisma.focusSession.create({
+      data: {
+        userId: user.id,
+        durationMinutes,
+      },
+    })
+  } catch (error: any) {
+    return { error: error.message }
+  }
 
   revalidatePath('/focus')
   return { success: true }
 }
 
 export async function updateProfile(formData: FormData) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
+  const user = await getCurrentUser()
   if (!user) return { error: 'Not authenticated' }
 
   const fullName = formData.get('full_name') as string
@@ -97,38 +94,42 @@ export async function updateProfile(formData: FormData) {
   const course = formData.get('course') as string
   const theme = formData.get('theme') as string
 
-  // Update auth user metadata
-  const { error: authError } = await supabase.auth.updateUser({
-    data: { full_name: fullName, university, course },
-  })
+  try {
+    // Update user metadata
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        rawUserMetaData: { full_name: fullName, university, course },
+      },
+    })
 
-  if (authError) return { error: authError.message }
-
-  // Upsert profiles
-  const { error: settingsError } = await supabase
-    .from('profiles')
-    .upsert(
-      {
-        id: user.id,
-        full_name: fullName,
+    // Upsert profile
+    await prisma.profile.upsert({
+      where: { id: user.id },
+      update: {
+        fullName,
         university,
         course,
-        theme_preference: theme || 'system',
-        updated_at: new Date().toISOString(),
+        themePreference: theme || 'system',
       },
-      { onConflict: 'id' }
-    )
-
-  if (settingsError) return { error: settingsError.message }
+      create: {
+        id: user.id,
+        fullName,
+        university,
+        course,
+        themePreference: theme || 'system',
+      },
+    })
+  } catch (error: any) {
+    return { error: error.message }
+  }
 
   revalidatePath('/profile')
   return { success: true }
 }
 
 export async function updateSettings(formData: FormData) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
+  const user = await getCurrentUser()
   if (!user) return { error: 'Not authenticated' }
 
   const emailNotifications = formData.get('email_notifications') === 'on'
@@ -137,22 +138,29 @@ export async function updateSettings(formData: FormData) {
   const weeklyDigest = formData.get('weekly_digest') === 'on'
   const aiModel = (formData.get('ai_model') as string) || 'llama-4-scout'
 
-  const { error } = await supabase
-    .from('profiles')
-    .upsert(
-      {
-        id: user.id,
-        email_notifications: emailNotifications,
-        push_notifications: pushNotifications,
-        study_reminders: studyReminders,
-        weekly_digest: weeklyDigest,
-        ai_model: aiModel,
-        updated_at: new Date().toISOString(),
+  try {
+    await prisma.profile.upsert({
+      where: { id: user.id },
+      update: {
+        emailNotifications,
+        pushNotifications,
+        studyReminders,
+        weeklyDigest,
+        aiModel,
       },
-      { onConflict: 'id' }
-    )
-
-  if (error) return { error: error.message }
+      create: {
+        id: user.id,
+        fullName: '',
+        emailNotifications,
+        pushNotifications,
+        studyReminders,
+        weeklyDigest,
+        aiModel,
+      },
+    })
+  } catch (error: any) {
+    return { error: error.message }
+  }
 
   revalidatePath('/settings')
   return { success: true }

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
 import {
   ScanSearch,
   Upload,
@@ -26,15 +25,10 @@ interface ATSReport {
   missing_keywords: string[]
   formatting_issues: string[]
   section_scores: Record<string, number>
-  created_at: string
+  createdAt: string
 }
 
 export default function ATSAnalyzerPage() {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-
   const [resumeText, setResumeText] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
   const [currentReport, setCurrentReport] = useState<ATSReport | null>(null)
@@ -47,17 +41,15 @@ export default function ATSAnalyzerPage() {
   }, [])
 
   const fetchPastReports = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data } = await supabase
-      .from('ats_reports')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(10)
-
-    if (data) setPastReports(data)
+    try {
+      const res = await fetch('/api/ats')
+      if (res.ok) {
+        const { data } = await res.json()
+        if (data) setPastReports(data)
+      }
+    } catch (err) {
+      console.error('Failed to fetch past reports', err)
+    }
   }
 
   const handleAnalyze = async () => {
@@ -71,15 +63,15 @@ export default function ATSAnalyzerPage() {
     setCurrentReport(null)
 
     try {
-      const response = await fetch('/api/career/ats-analyze', {
+      const response = await fetch('/api/ats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resumeText }),
+        body: JSON.stringify({ action: 'analyze', resume_text: resumeText }),
       })
 
       if (!response.ok) throw new Error('Analysis failed')
 
-      const report = await response.json()
+      const { data: report } = await response.json()
       setCurrentReport(report)
       fetchPastReports()
     } catch (err) {
@@ -178,11 +170,11 @@ export default function ATSAnalyzerPage() {
                   <div key={section} className="space-y-1">
                     <div className="flex justify-between text-sm">
                       <span className="font-medium text-gray-700 dark:text-gray-300 capitalize">{section.replace(/_/g, ' ')}</span>
-                      <span className={getScoreColor(score)}>{score}%</span>
+                      <span className={getScoreColor(score as number)}>{score as number}%</span>
                     </div>
                     <div className="w-full bg-gray-200 dark:bg-zinc-800 rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full transition-all ${score >= 80 ? 'bg-emerald-500' : score >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
+                        className={`h-2 rounded-full transition-all ${(score as number) >= 80 ? 'bg-emerald-500' : (score as number) >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
                         style={{ width: `${score}%` }}
                       />
                     </div>
@@ -297,7 +289,7 @@ export default function ATSAnalyzerPage() {
                         {getScoreLabel(report.score)} Score
                       </p>
                       <p className="text-xs text-gray-500">
-                        {new Date(report.created_at).toLocaleDateString('en-US', {
+                        {new Date(report.createdAt).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric',

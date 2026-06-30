@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import { VivaClient } from '@/components/viva/viva-client'
 import Link from 'next/link'
 import { ArrowLeft, Mic } from 'lucide-react'
@@ -6,8 +7,7 @@ import { ArrowLeft, Mic } from 'lucide-react'
 export const metadata = { title: 'Viva Mode | NexusLearn AI' }
 
 export default async function VivaModePage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
   if (!user) {
     return (
@@ -18,11 +18,19 @@ export default async function VivaModePage() {
   }
 
   // Fetch past sessions
-  const { data: sessions } = await supabase
-    .from('viva_sessions')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
+  const sessions = await prisma.vivaSession.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: 'desc' }
+  })
+
+  const sessionsData = sessions.map(s => ({
+    id: s.id,
+    topic: s.topic,
+    questions: (s.questions as any) || [],
+    score: s.score,
+    status: s.status,
+    createdAt: s.createdAt.toISOString()
+  }))
 
   return (
     <div className="space-y-6">
@@ -44,7 +52,7 @@ export default async function VivaModePage() {
         </p>
       </div>
 
-      <VivaClient initialSessions={sessions || []} userId={user.id} />
+      <VivaClient initialSessions={sessionsData} userId={user.id} />
     </div>
   )
 }

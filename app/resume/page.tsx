@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
 import {
   User,
   GraduationCap,
@@ -65,10 +64,6 @@ function generateId() {
 }
 
 export default function ResumeBuilderPage() {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
 
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit')
   const [saving, setSaving] = useState(false)
@@ -138,11 +133,7 @@ export default function ResumeBuilderPage() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
-
       const resumeData = {
-        user_id: user.id,
         personal_info: personal,
         education,
         experience,
@@ -150,8 +141,16 @@ export default function ResumeBuilderPage() {
         projects,
       }
 
-      const { error } = await supabase.from('resumes').insert(resumeData)
-      if (error) throw error
+      const response = await fetch('/api/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: personal.full_name ? `${personal.full_name}'s Resume` : 'My Resume',
+          resume_text: JSON.stringify(resumeData)
+        })
+      })
+
+      if (!response.ok) throw new Error('Failed to save resume')
 
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)

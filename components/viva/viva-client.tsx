@@ -32,7 +32,7 @@ interface VivaSession {
   questions: Question[]
   score: number | null
   status: string
-  created_at: string
+  createdAt: string | Date
 }
 
 const SUGGESTED_TOPICS = [
@@ -545,7 +545,7 @@ export function VivaClient({
                       </span>
                     </div>
                     <p className="text-xs text-gray-400 mt-1">
-                      {new Date(session.created_at).toLocaleDateString()}
+                      {new Date(session.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                 ))

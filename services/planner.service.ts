@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 
 export class PlannerService {
   /**
@@ -43,23 +43,17 @@ Output ONLY valid JSON in this format:
       const data = await response.json()
       const parsedTopics = JSON.parse(data.choices[0].message.content)
 
-      const supabase = await createClient()
-      
       // Save the overall study plan
-      const { data: plan, error: planError } = await supabase
-        .from('study_plans')
-        .insert({
-          user_id: userId,
-          title: parsedTopics.plan_title || 'Auto-generated Plan',
-          target_date: targetDate,
-          content: JSON.stringify(parsedTopics)
+      try {
+        await prisma.studyPlan.create({
+          data: {
+            userId,
+            title: parsedTopics.plan_title || 'Auto-generated Plan',
+            targetDate: new Date(targetDate),
+          },
         })
-        .select()
-        .single()
-
-      if (planError) {
+      } catch (planError) {
         console.error('Failed to save to DB (study_plans table may not exist or schema mismatch). Returning JSON anyway:', planError)
-        return parsedTopics
       }
 
       return parsedTopics

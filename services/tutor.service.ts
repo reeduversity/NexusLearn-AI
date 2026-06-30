@@ -6,7 +6,7 @@ export class TutorService {
    */
   static async askConceptQuestion(question: string, userId: string) {
     // 1. Retrieve context
-    const contextNodes = await VectorSearchService.searchNotes(question, userId, 3)
+    const contextNodes = (await VectorSearchService.searchNotes(question, userId, 3)) as any[]
     const contextText = contextNodes?.map((n: any) => n.content).join('\n') || ''
 
     // 2. Query LLM

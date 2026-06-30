@@ -1,29 +1,25 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 
 export class ExamService {
   /**
    * Analyzes Previous Year Questions (PYQs) to predict important topics for upcoming exams.
    */
   static async predictImportantTopics(courseId: string) {
-    const supabase = await createClient()
-
     // 1. Fetch all PYQs for the specific course
-    const { data: pyqs, error } = await supabase
-      .from('pyq_papers')
-      .select('content, year, topic_tags')
-      .eq('course_id', courseId)
-      .order('year', { ascending: false })
+    const pyqs = await prisma.pyqPaper.findMany({
+      where: { courseId },
+      select: { content: true, year: true, topicTags: true },
+      orderBy: { year: 'desc' },
+    })
 
-    if (error || !pyqs) throw new Error('Failed to fetch PYQs')
+    if (!pyqs || pyqs.length === 0) throw new Error('Failed to fetch PYQs')
 
-    // 2. Simple frequency analysis (in production, this can use an LLM for semantic pattern recognition)
+    // 2. Simple frequency analysis
     const topicFrequency: Record<string, number> = {}
     
     pyqs.forEach(paper => {
-      // Assuming topic_tags is a JSONB array of strings
-      const tags: string[] = paper.topic_tags || []
+      const tags: string[] = (paper.topicTags as string[]) || []
       tags.forEach(tag => {
-        // Weight recent years more heavily (naive implementation)
         const weight = paper.year >= new Date().getFullYear() - 2 ? 1.5 : 1.0
         topicFrequency[tag] = (topicFrequency[tag] || 0) + weight
       })
@@ -33,7 +29,7 @@ export class ExamService {
     const predictions = Object.entries(topicFrequency)
       .map(([topic, weight]) => ({ topic, weight }))
       .sort((a, b) => b.weight - a.weight)
-      .slice(0, 5) // Top 5 predicted topics
+      .slice(0, 5)
 
     return predictions
   }
@@ -56,7 +52,7 @@ export class ExamService {
               role: 'system',
               content: 'You are an AI Exam Generator. Generate a 10-question multiple-choice mock test focusing on high-probability academic topics. Return JSON array format: [{"q": "Question?", "options": ["A", "B", "C", "D"], "ans": "A"}].'
             },
-            { role: 'user', content: `Generate test for course ID: ${courseId}` } // In reality, inject context text here
+            { role: 'user', content: `Generate test for course ID: ${courseId}` }
           ],
           response_format: { type: 'json_object' }
         }),
@@ -66,19 +62,15 @@ export class ExamService {
       const testData = JSON.parse(data.choices[0].message.content)
 
       // Save to database
-      const supabase = await createClient()
-      const { data: test, error } = await supabase
-        .from('mock_tests')
-        .insert({
-          user_id: userId,
-          course_id: courseId,
+      const test = await prisma.mockTest.create({
+        data: {
+          userId,
+          courseId,
           content: testData,
-          status: 'pending'
-        })
-        .select()
-        .single()
+          status: 'pending',
+        },
+      })
 
-      if (error) throw error
       return test
     } catch (error) {
       console.error('Mock test generation failed:', error)
@@ -128,19 +120,16 @@ Output valid JSON ONLY with this structure:
       const testData = JSON.parse(data.choices[0].message.content)
 
       // Save to database
-      const supabase = await createClient()
-      const { data: test, error } = await supabase
-        .from('mock_tests')
-        .insert({
-          user_id: userId,
-          content: testData,
-          status: 'generated'
+      try {
+        await prisma.mockTest.create({
+          data: {
+            userId,
+            content: testData,
+            status: 'generated',
+          },
         })
-        .select()
-        .single()
-
-      if (error) {
-        console.error('Failed to save to DB:', error)
+      } catch (dbErr) {
+        console.error('Failed to save to DB:', dbErr)
       }
 
       return testData

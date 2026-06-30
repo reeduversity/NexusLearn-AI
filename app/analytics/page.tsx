@@ -1,18 +1,17 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import { Activity, Target, TrendingUp, AlertTriangle, ShieldCheck } from 'lucide-react'
 
 export const metadata = { title: 'Analytics Engine | NexusLearn AI' }
 
 export default async function AnalyticsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
   // Fetch Weaknesses
-  const { data: weaknesses } = await supabase
-    .from('weaknesses')
-    .select('*')
-    .eq('user_id', user?.id)
-    .order('current_strength', { ascending: true })
+  const weaknesses = user ? await prisma.weakness.findMany({
+    where: { userId: user.id },
+    orderBy: { currentStrength: 'asc' },
+  }) : []
 
   // Mocking heatmap data for rendering demonstration
   const heatmapData = Array.from({ length: 30 }, (_, i) => ({
@@ -40,12 +39,12 @@ export default async function AnalyticsPage() {
                 <div key={weakness.id} className="space-y-1">
                   <div className="flex justify-between text-sm">
                     <span className="font-medium text-gray-700 dark:text-gray-300">{weakness.topic}</span>
-                    <span className="text-gray-500">{Math.round(weakness.current_strength)}%</span>
+                    <span className="text-gray-500">{Math.round(weakness.currentStrength)}%</span>
                   </div>
                   <div className="w-full bg-gray-200 dark:bg-zinc-800 rounded-full h-2">
                     <div 
-                      className={`h-2 rounded-full ${weakness.current_strength < 40 ? 'bg-red-500' : 'bg-orange-400'}`} 
-                      style={{ width: `${weakness.current_strength}%` }}
+                      className={`h-2 rounded-full ${weakness.currentStrength < 40 ? 'bg-red-500' : 'bg-orange-400'}`} 
+                      style={{ width: `${weakness.currentStrength}%` }}
                     ></div>
                   </div>
                 </div>

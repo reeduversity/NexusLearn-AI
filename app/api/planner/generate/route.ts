@@ -1,36 +1,18 @@
-import { createClient } from '@/lib/supabase/server'
 import { validateSession, apiResponse, apiError } from '@/lib/api-helper'
 import { PlannerService } from '@/services/planner.service'
-import { ParserService } from '@/services/parser.service'
+import { z } from 'zod'
+
+const plannerSchema = z.object({ text: z.string().min(1), target_date: z.string().min(1) })
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient()
-    const user = await validateSession(supabase)
-
-    const formData = await req.formData()
-    const file = formData.get('file') as File | null
-    const targetDate = formData.get('targetDate') as string || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // default 30 days
-
-    if (!file) {
-      return apiError('No syllabus file uploaded', 400)
-    }
-
-    // Extract text
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const extractedText = await ParserService.parseFile(buffer, file.type)
-
-    if (!extractedText || extractedText.trim().length < 20) {
-      return apiError('Could not extract sufficient text from syllabus', 400)
-    }
-
-    // Generate study plan
-    const planData = await PlannerService.autoPlanSyllabus(extractedText, user.id, targetDate)
-
-    return apiResponse(planData)
+    const user = await validateSession()
+    const body = await req.json()
+    const parsed = plannerSchema.parse(body)
+    const result = await PlannerService.autoPlanSyllabus(parsed.text, user.id, parsed.target_date)
+    return apiResponse(result)
   } catch (error: any) {
-    console.error('Planner API Error:', error)
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to generate study plan', error.message === 'Unauthorized' ? 401 : 500)
+    if (error instanceof z.ZodError) return apiError(error.errors[0].message, 400)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to generate plan', error.message === 'Unauthorized' ? 401 : 500)
   }
 }

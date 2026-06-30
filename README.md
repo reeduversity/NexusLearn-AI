@@ -32,7 +32,9 @@
 - **Framework**: [Next.js](https://nextjs.org/) (App Router)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Database/Auth**: [Supabase](https://supabase.com/)
+- **Database**: [Neon PostgreSQL](https://neon.tech/)
+- **ORM**: [Prisma](https://www.prisma.io/)
+- **Authentication**: [NextAuth.js](https://next-auth.js.org/)
 - **AI Integrations**: Groq / Specialized NLP services
 
 ---
@@ -44,6 +46,7 @@ Follow these instructions to set up the project locally on your machine.
 ### Prerequisites
 - [Node.js](https://nodejs.org/en/) (v18 or higher recommended)
 - npm or yarn or pnpm
+- A [Neon](https://neon.tech/) PostgreSQL Database
 
 ### Installation
 
@@ -63,14 +66,21 @@ Follow these instructions to set up the project locally on your machine.
    ```bash
    cp .env.example .env.local
    ```
-   *Fill in your specific API keys and Supabase credentials in the `.env.local` file.*
+   *Fill in your specific AI API keys and Neon Postgres `DATABASE_URL` credentials in the `.env` file.*
 
-4. **Run the Development Server:**
+4. **Initialize Database (Prisma):**
+   Run the following commands to generate Prisma client and sync your database schema:
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   ```
+
+5. **Run the Development Server:**
    ```bash
    npm run dev
    ```
 
-5. **Open the App:**
+6. **Open the App:**
    Navigate to [http://localhost:3000](http://localhost:3000) in your browser to see the application running.
 
 ---
@@ -80,7 +90,7 @@ Follow these instructions to set up the project locally on your machine.
 - `/app` - Next.js App Router pages and API routes.
 - `/components` - Reusable UI components.
 - `/services` - Business logic and AI integration services.
-- `/supabase` - Database migrations and configurations.
+- `/prisma` - Prisma Schema, configurations, and database migrations.
 - `/types` - TypeScript type definitions.
 
 ---

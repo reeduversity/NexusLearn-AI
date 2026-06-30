@@ -1,55 +1,42 @@
-import { createClient } from '@/lib/supabase/server'
-import {
-  FolderKanban,
-  Plus,
-  Users,
-  CheckCircle2,
-  Clock,
-  BarChart3,
-  ArrowLeft,
-} from 'lucide-react'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
+import { FolderKanban, Plus, Users, CheckCircle2, Clock, BarChart3, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
 export const metadata = { title: 'Group Project Hub | NexusLearn AI' }
 
 export default async function ProjectsPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
   // Fetch projects the user created or is a member of
-  const { data: ownedProjects } = await supabase
-    .from('projects')
-    .select(`
-      *,
-      project_members(count),
-      project_tasks(id, status)
-    `)
-    .eq('created_by', user?.id)
-    .order('created_at', { ascending: false })
+  const ownedProjects = user ? await prisma.project.findMany({
+    where: { userId: user.id },
+    include: {
+      _count: { select: { members: true } },
+      tasks: { select: { id: true, status: true } }
+    },
+    orderBy: { createdAt: 'desc' }
+  }) : []
 
-  const { data: memberProjects } = await supabase
-    .from('project_members')
-    .select(`
-      project_id,
-      projects(
-        *,
-        project_members(count),
-        project_tasks(id, status)
-      )
-    `)
-    .eq('user_id', user?.id)
+  const memberProjects = user ? await prisma.projectMember.findMany({
+    where: { userId: user.id },
+    include: {
+      project: {
+        include: {
+          _count: { select: { members: true } },
+          tasks: { select: { id: true, status: true } }
+        }
+      }
+    }
+  }) : []
 
   // Merge and deduplicate projects
-  const memberProjectsFlat = (memberProjects || [])
-    .map((m: any) => m.projects)
-    .filter(Boolean)
+  const memberProjectsFlat = memberProjects.map((m) => m.project).filter(Boolean)
 
   const allProjectIds = new Set<string>()
   const allProjects: any[] = []
 
-  for (const p of [...(ownedProjects || []), ...memberProjectsFlat]) {
+  for (const p of [...ownedProjects, ...memberProjectsFlat]) {
     if (!allProjectIds.has(p.id)) {
       allProjectIds.add(p.id)
       allProjects.push(p)
@@ -58,14 +45,11 @@ export default async function ProjectsPage() {
 
   // Calculate progress for each project
   const projectsWithProgress = allProjects.map((project) => {
-    const tasks = project.project_tasks || []
+    const tasks = project.tasks || []
     const totalTasks = tasks.length
     const completedTasks = tasks.filter((t: any) => t.status === 'completed').length
     const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
-    const memberCount =
-      Array.isArray(project.project_members) && project.project_members.length > 0
-        ? project.project_members[0].count
-        : 0
+    const memberCount = project._count?.members || 0
 
     return {
       ...project,
@@ -78,7 +62,6 @@ export default async function ProjectsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div className="flex items-center space-x-3">
           <Link
@@ -90,7 +73,7 @@ export default async function ProjectsPage() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Group Project Hub</h1>
             <p className="mt-1 text-gray-500 dark:text-gray-400">
-              Manage collaborative projects, assign tasks, and track your team&apos;s progress.
+              Manage collaborative projects, assign tasks, and track your team's progress.
             </p>
           </div>
         </div>
@@ -102,7 +85,6 @@ export default async function ProjectsPage() {
         </div>
       </div>
 
-      {/* Project Stats Bar */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex items-center space-x-3">
@@ -145,7 +127,6 @@ export default async function ProjectsPage() {
         </div>
       </div>
 
-      {/* Projects Grid */}
       {projectsWithProgress.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projectsWithProgress.map((project) => (
@@ -153,7 +134,6 @@ export default async function ProjectsPage() {
               key={project.id}
               className="group rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md hover:border-indigo-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-indigo-700"
             >
-              {/* Project Header */}
               <div className="flex items-start justify-between">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-900/20">
                   <FolderKanban className="h-5 w-5 text-indigo-500" />
@@ -167,15 +147,10 @@ export default async function ProjectsPage() {
                         : 'bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-gray-400'
                   }`}
                 >
-                  {project.progress === 100
-                    ? 'Completed'
-                    : project.progress > 0
-                      ? 'In Progress'
-                      : 'Not Started'}
+                  {project.progress === 100 ? 'Completed' : project.progress > 0 ? 'In Progress' : 'Not Started'}
                 </span>
               </div>
 
-              {/* Project Info */}
               <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white truncate">
                 {project.title}
               </h3>
@@ -185,7 +160,6 @@ export default async function ProjectsPage() {
                 </p>
               )}
 
-              {/* Meta */}
               <div className="mt-4 flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
                 <div className="flex items-center">
                   <Users className="mr-1 h-4 w-4" />
@@ -193,13 +167,10 @@ export default async function ProjectsPage() {
                 </div>
                 <div className="flex items-center">
                   <BarChart3 className="mr-1 h-4 w-4" />
-                  <span>
-                    {project.completedTasks}/{project.totalTasks} tasks
-                  </span>
+                  <span>{project.completedTasks}/{project.totalTasks} tasks</span>
                 </div>
               </div>
 
-              {/* Progress Bar */}
               <div className="mt-4">
                 <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
                   <span>Progress</span>
@@ -208,21 +179,16 @@ export default async function ProjectsPage() {
                 <div className="w-full bg-gray-200 dark:bg-zinc-700 rounded-full h-2">
                   <div
                     className={`h-2 rounded-full transition-all ${
-                      project.progress === 100
-                        ? 'bg-green-500'
-                        : project.progress > 50
-                          ? 'bg-indigo-500'
-                          : 'bg-orange-400'
+                      project.progress === 100 ? 'bg-green-500' : project.progress > 50 ? 'bg-indigo-500' : 'bg-orange-400'
                     }`}
                     style={{ width: `${project.progress}%` }}
                   />
                 </div>
               </div>
 
-              {/* Due Date */}
-              {project.due_date && (
+              {project.dueDate && (
                 <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-                  Due: {new Date(project.due_date).toLocaleDateString()}
+                  Due: {new Date(project.dueDate).toLocaleDateString()}
                 </p>
               )}
             </div>

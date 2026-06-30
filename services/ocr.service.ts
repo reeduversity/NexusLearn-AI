@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import Tesseract from 'tesseract.js'
 
 const CONFIDENCE_THRESHOLD = 70
@@ -37,11 +37,9 @@ export class OCRService {
 
     // Step 2: Route based on confidence
     if (confidence > CONFIDENCE_THRESHOLD && extractedText.length > 10) {
-      // High confidence — use extracted text with Groq text model
       method = 'tesseract+groq'
       solution = await OCRService.solveWithGroqText(extractedText)
     } else {
-      // Low confidence — use Groq Vision multimodal
       method = 'groq-vision'
       const visionResult = await OCRService.solveWithGroqVision(imageUrl)
       solution = visionResult.solution
@@ -50,12 +48,13 @@ export class OCRService {
 
     // Step 3: Save job to ocr_jobs table
     try {
-      const supabase = await createClient()
-      await supabase.from('ocr_jobs').insert({
-        user_id: userId,
-        image_url: imageUrl,
-        extracted_text: extractedText,
-        solved_output: solution
+      await prisma.ocrJob.create({
+        data: {
+          userId,
+          imageUrl,
+          extractedText,
+          solvedOutput: solution,
+        },
       })
     } catch (dbErr) {
       console.error('Failed to save OCR job to DB:', dbErr)

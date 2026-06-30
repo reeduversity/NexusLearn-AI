@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import {
   FolderKanban,
   Users,
@@ -81,31 +82,27 @@ const campusModules = [
 ]
 
 export default async function CampusPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
-  // Fetch quick stats
-  const { count: projectCount } = await supabase
-    .from('projects')
-    .select('*', { count: 'exact', head: true })
-    .eq('created_by', user?.id)
+  let projectCount = 0
+  let groupCount = 0
+  let upcomingEventsCount = 0
 
-  const { count: groupCount } = await supabase
-    .from('study_group_members')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user?.id)
-
-  const { count: upcomingEventsCount } = await supabase
-    .from('events')
-    .select('*', { count: 'exact', head: true })
-    .gte('event_date', new Date().toISOString())
+  if (user) {
+    const [pCount, gCount, eCount] = await Promise.all([
+      prisma.project.count({ where: { userId: user.id } }),
+      prisma.studyGroupMember.count({ where: { userId: user.id } }),
+      prisma.event.count({ where: { date: { gte: new Date() } } })
+    ])
+    projectCount = pCount
+    groupCount = gCount
+    upcomingEventsCount = eCount
+  }
 
   const stats = [
-    { label: 'My Projects', value: projectCount || 0 },
-    { label: 'My Groups', value: groupCount || 0 },
-    { label: 'Upcoming Events', value: upcomingEventsCount || 0 },
+    { label: 'My Projects', value: projectCount },
+    { label: 'My Groups', value: groupCount },
+    { label: 'Upcoming Events', value: upcomingEventsCount },
   ]
 
   return (
@@ -177,13 +174,11 @@ export default async function CampusPage() {
 }
 
 async function NoticeboardSection() {
-  const supabase = await createClient()
-
-  const { data: notices } = await supabase
-    .from('digital_noticeboard')
-    .select('*, profiles(full_name)')
-    .order('created_at', { ascending: false })
-    .limit(5)
+  const notices = await prisma.digitalNoticeboard.findMany({
+    include: { user: { include: { profile: { select: { fullName: true } } } } },
+    orderBy: { createdAt: 'desc' },
+    take: 5
+  })
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden">
@@ -219,8 +214,8 @@ async function NoticeboardSection() {
                     {notice.message}
                   </p>
                   <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-                    {notice.profiles?.full_name || 'Anonymous'} ·{' '}
-                    {new Date(notice.created_at).toLocaleDateString()}
+                    {notice.user?.profile?.fullName || 'Anonymous'} ·{' '}
+                    {new Date(notice.createdAt).toLocaleDateString()}
                   </p>
                 </div>
               </div>
@@ -240,13 +235,10 @@ async function NoticeboardSection() {
 }
 
 async function SafetySection() {
-  const supabase = await createClient()
-
-  const { data: alerts } = await supabase
-    .from('safety_alerts')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(3)
+  const alerts = await prisma.safetyAlert.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 3
+  })
 
   const severityStyles: Record<string, { bg: string; text: string; icon: string }> = {
     emergency: {
@@ -290,7 +282,7 @@ async function SafetySection() {
                       {alert.type}
                     </span>
                     <span className="text-xs text-gray-400 dark:text-gray-500">
-                      {new Date(alert.created_at).toLocaleString()}
+                      {new Date(alert.createdAt).toLocaleString()}
                     </span>
                   </div>
                   <p className={`mt-1 font-semibold ${style.text}`}>{alert.title}</p>

@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import Link from 'next/link'
 import {
   GraduationCap,
@@ -16,43 +17,46 @@ import {
 export const metadata = { title: 'Exams Hub | NexusLearn AI' }
 
 export default async function ExamsHubPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
-  // Fetch recent mock tests and PYQ papers in parallel
-  const [
-    { data: recentMockTests },
-    { data: recentPyqPapers },
-    { count: totalMockTests },
-    { count: totalPyqPapers },
-    { count: completedTests },
-  ] = await Promise.all([
-    supabase
-      .from('mock_tests')
-      .select('id, course_id, status, created_at, content')
-      .eq('user_id', user?.id)
-      .order('created_at', { ascending: false })
-      .limit(3),
-    supabase
-      .from('pyq_papers')
-      .select('id, course_id, year, topic_tags, created_at')
-      .eq('user_id', user?.id)
-      .order('created_at', { ascending: false })
-      .limit(3),
-    supabase
-      .from('mock_tests')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user?.id),
-    supabase
-      .from('pyq_papers')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user?.id),
-    supabase
-      .from('mock_tests')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user?.id)
-      .eq('status', 'completed'),
-  ])
+  let recentMockTests: any[] = []
+  let recentPyqPapers: any[] = []
+  let totalMockTests = 0
+  let totalPyqPapers = 0
+  let completedTests = 0
+
+  if (user) {
+    // Fetch recent mock tests and PYQ papers in parallel
+    const [
+      tests,
+      pyqs,
+      testsCount,
+      pyqsCount,
+      completedTestsCount,
+    ] = await Promise.all([
+      prisma.mockTest.findMany({
+        where: { userId: user.id },
+        select: { id: true, courseId: true, status: true, createdAt: true, content: true },
+        orderBy: { createdAt: 'desc' },
+        take: 3
+      }),
+      prisma.pyqPaper.findMany({
+        where: { userId: user.id },
+        select: { id: true, courseId: true, year: true, topicTags: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+        take: 3
+      }),
+      prisma.mockTest.count({ where: { userId: user.id } }),
+      prisma.pyqPaper.count({ where: { userId: user.id } }),
+      prisma.mockTest.count({ where: { userId: user.id, status: 'completed' } }),
+    ])
+    
+    recentMockTests = tests
+    recentPyqPapers = pyqs
+    totalMockTests = testsCount
+    totalPyqPapers = pyqsCount
+    completedTests = completedTestsCount
+  }
 
   const examModules = [
     {
@@ -63,7 +67,7 @@ export default async function ExamsHubPage() {
       color: 'text-blue-500',
       bg: 'bg-blue-50 dark:bg-blue-900/20',
       borderHover: 'hover:border-blue-500',
-      stat: `${totalPyqPapers || 0} papers`,
+      stat: `${totalPyqPapers} papers`,
     },
     {
       name: 'Viva Mode',
@@ -93,7 +97,7 @@ export default async function ExamsHubPage() {
       color: 'text-purple-500',
       bg: 'bg-purple-50 dark:bg-purple-900/20',
       borderHover: 'hover:border-purple-500',
-      stat: `${totalMockTests || 0} tests`,
+      stat: `${totalMockTests} tests`,
     },
   ]
 
@@ -121,7 +125,7 @@ export default async function ExamsHubPage() {
             </div>
             <div className="ml-3">
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Mock Tests</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalMockTests || 0}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalMockTests}</p>
             </div>
           </div>
         </div>
@@ -132,7 +136,7 @@ export default async function ExamsHubPage() {
             </div>
             <div className="ml-3">
               <p className="text-sm text-gray-500 dark:text-gray-400">Completed Tests</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{completedTests || 0}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{completedTests}</p>
             </div>
           </div>
         </div>
@@ -143,7 +147,7 @@ export default async function ExamsHubPage() {
             </div>
             <div className="ml-3">
               <p className="text-sm text-gray-500 dark:text-gray-400">PYQ Papers</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalPyqPapers || 0}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalPyqPapers}</p>
             </div>
           </div>
         </div>
@@ -201,10 +205,10 @@ export default async function ExamsHubPage() {
                       <div className={`h-2.5 w-2.5 rounded-full ${test.status === 'completed' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                       <div className="ml-3">
                         <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          Mock Test — {test.course_id}
+                          Mock Test — {test.courseId}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(test.created_at).toLocaleDateString('en-US', {
+                          {new Date(test.createdAt).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric',
@@ -265,15 +269,15 @@ export default async function ExamsHubPage() {
                       <FileQuestion className="h-5 w-5 text-blue-500" />
                       <div className="ml-3">
                         <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {paper.course_id} — {paper.year}
+                          {paper.courseId} — {paper.year}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {(paper.topic_tags as string[])?.length || 0} topics tagged
+                          {(paper.topicTags as string[])?.length || 0} topics tagged
                         </p>
                       </div>
                     </div>
                     <span className="text-xs text-gray-400 dark:text-gray-500">
-                      {new Date(paper.created_at).toLocaleDateString('en-US', {
+                      {new Date(paper.createdAt).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
                       })}

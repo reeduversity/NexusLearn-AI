@@ -1,19 +1,18 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import { StudyCanvasClient } from '@/components/study/study-canvas-client'
 import { UploadCloud, FileText, LayoutGrid, Network } from 'lucide-react'
 
 export const metadata = { title: 'Study Hub | NexusLearn AI' }
 
 export default async function StudyHubPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
   // Fetch materials for the user
-  const { data: materials } = await supabase
-    .from('materials')
-    .select('*')
-    .eq('user_id', user?.id)
-    .order('created_at', { ascending: false })
+  const materials = user ? await prisma.material.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: 'desc' }
+  }) : []
 
   return (
     <div className="space-y-8">

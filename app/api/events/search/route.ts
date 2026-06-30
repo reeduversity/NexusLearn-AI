@@ -1,28 +1,18 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import { validateSession, apiResponse, apiError } from '@/lib/api-helper'
 import { EventsService } from '@/services/events.service'
-import { z } from 'zod'
 
-const schema = z.object({
-  query: z.string().min(2),
-  events: z.array(z.any())
-})
-
-export async function POST(req: Request) {
+export async function GET(req: Request) {
   try {
-    const supabase = await createClient()
-    await validateSession(supabase)
-
-    const body = await req.json()
-    const parsed = schema.parse(body)
-
-    const matchedIds = await EventsService.filterEvents(parsed.query, parsed.events)
-
-    return apiResponse(matchedIds)
+    await validateSession()
+    const url = new URL(req.url)
+    const query = url.searchParams.get('q') || ''
+    const events = await prisma.event.findMany({ orderBy: { date: 'asc' } })
+    if (!query) return apiResponse(events)
+    const matchedIds = await EventsService.filterEvents(query, events)
+    const filtered = events.filter((e: any) => matchedIds.includes(e.id))
+    return apiResponse(filtered)
   } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return apiError(error.errors[0].message, 400)
-    }
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to search events', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError('Failed to search events', 500)
   }
 }

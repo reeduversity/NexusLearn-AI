@@ -19,7 +19,7 @@ export default function FlashcardStudyPage() {
   const [score, setScore] = useState({ correct: 0, incorrect: 0, hard: 0 })
 
   useEffect(() => {
-    // In a real app, we would fetch from Supabase here
+    // In a real app, we would fetch from the database via Prisma here
     setCards(mockCards)
   }, [])
 

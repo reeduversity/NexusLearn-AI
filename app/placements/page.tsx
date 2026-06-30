@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import Link from 'next/link'
 import {
   Code2,
@@ -49,33 +50,30 @@ const placementSections = [
 ]
 
 export default async function PlacementsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
-  const [
-    { count: totalSessions },
-    { count: completedSessions },
-    { data: recentSessions },
-  ] = await Promise.all([
-    supabase
-      .from('practice_sessions')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user?.id),
-    supabase
-      .from('practice_sessions')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user?.id)
-      .eq('status', 'completed'),
-    supabase
-      .from('practice_sessions')
-      .select('id, type, score, status, created_at')
-      .eq('user_id', user?.id)
-      .order('created_at', { ascending: false })
-      .limit(5),
-  ])
+  let totalSessions = 0
+  let completedSessions = 0
+  let recentSessions: any[] = []
+
+  if (user) {
+    const [total, completed, recent] = await Promise.all([
+      prisma.practiceSession.count({ where: { userId: user.id } }),
+      prisma.practiceSession.count({ where: { userId: user.id, status: 'completed' } }),
+      prisma.practiceSession.findMany({
+        where: { userId: user.id },
+        select: { id: true, topic: true, score: true, status: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+        take: 5
+      })
+    ])
+    totalSessions = total
+    completedSessions = completed
+    recentSessions = recent
+  }
 
   const completionRate = totalSessions && totalSessions > 0
-    ? Math.round(((completedSessions || 0) / totalSessions) * 100)
+    ? Math.round((completedSessions / totalSessions) * 100)
     : 0
 
   return (
@@ -96,7 +94,7 @@ export default async function PlacementsPage() {
               <Zap className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalSessions || 0}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalSessions}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Sessions</p>
             </div>
           </div>
@@ -107,7 +105,7 @@ export default async function PlacementsPage() {
               <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{completedSessions || 0}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{completedSessions}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400">Completed</p>
             </div>
           </div>
@@ -171,17 +169,17 @@ export default async function PlacementsPage() {
               <div key={session.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-100 dark:bg-zinc-800/50 dark:border-zinc-800">
                 <div className="flex items-center space-x-3">
                   <div className={`rounded-full p-1.5 ${
-                    session.type === 'dsa' ? 'bg-blue-100 dark:bg-blue-900/30' :
-                    session.type === 'aptitude' ? 'bg-purple-100 dark:bg-purple-900/30' :
+                    session.topic === 'dsa' ? 'bg-blue-100 dark:bg-blue-900/30' :
+                    session.topic === 'aptitude' ? 'bg-purple-100 dark:bg-purple-900/30' :
                     'bg-emerald-100 dark:bg-emerald-900/30'
                   }`}>
-                    {session.type === 'dsa' ? <Code2 className="h-3.5 w-3.5 text-blue-500" /> :
-                     session.type === 'aptitude' ? <Brain className="h-3.5 w-3.5 text-purple-500" /> :
+                    {session.topic === 'dsa' ? <Code2 className="h-3.5 w-3.5 text-blue-500" /> :
+                     session.topic === 'aptitude' ? <Brain className="h-3.5 w-3.5 text-purple-500" /> :
                      <Users className="h-3.5 w-3.5 text-emerald-500" />}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">{session.type} Practice</p>
-                    <p className="text-xs text-gray-500">{new Date(session.created_at).toLocaleDateString()}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">{session.topic} Practice</p>
+                    <p className="text-xs text-gray-500">{new Date(session.createdAt).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">

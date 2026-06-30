@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import {
   BookOpen,
   Upload,
@@ -46,28 +47,20 @@ function getTypeConfig(type: string) {
 }
 
 export default async function ResourcesPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
   // Fetch all shared resources
-  const { data: resources } = await supabase
-    .from('resources')
-    .select('*, profiles(full_name, avatar_url)')
-    .order('created_at', { ascending: false })
+  const resources = await prisma.resource.findMany({
+    include: { user: { include: { profile: { select: { fullName: true } } } } },
+    orderBy: { createdAt: 'desc' }
+  })
 
   // Fetch user's own resources count
-  const { count: myResourceCount } = await supabase
-    .from('resources')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user?.id)
+  const myResourceCount = user ? await prisma.resource.count({
+    where: { userId: user.id }
+  }) : 0
 
-  // Total downloads across all resources
-  const totalDownloads = (resources || []).reduce(
-    (sum, r) => sum + (r.download_count || 0),
-    0
-  )
+  const totalDownloads = 0
 
   return (
     <div className="space-y-6">
@@ -111,7 +104,7 @@ export default async function ResourcesPage() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Resources</p>
               <p className="text-xl font-bold text-gray-900 dark:text-white">
-                {(resources || []).length}
+                {resources.length}
               </p>
             </div>
           </div>
@@ -190,7 +183,7 @@ export default async function ResourcesPage() {
                 <div className="mt-3 flex items-center text-sm text-gray-500 dark:text-gray-400">
                   <User className="mr-1.5 h-3.5 w-3.5" />
                   <span className="truncate">
-                    {resource.profiles?.full_name || 'Anonymous'}
+                    {resource.user?.profile?.fullName || 'Anonymous'}
                   </span>
                 </div>
 
@@ -199,11 +192,11 @@ export default async function ResourcesPage() {
                   <div className="flex items-center space-x-4 text-xs text-gray-400 dark:text-gray-500">
                     <div className="flex items-center">
                       <Download className="mr-1 h-3.5 w-3.5" />
-                      <span>{resource.download_count || 0}</span>
+                      <span>0</span>
                     </div>
                     <div className="flex items-center">
                       <Eye className="mr-1 h-3.5 w-3.5" />
-                      <span>{resource.view_count || 0}</span>
+                      <span>0</span>
                     </div>
                   </div>
                   <button className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors">

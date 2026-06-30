@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import { SummarizerService } from './summarizer.service'
 import { YoutubeTranscript } from 'youtube-transcript'
 
@@ -10,8 +10,25 @@ export class YouTubeService {
     try {
       // 1. Fetch transcript using the youtube-transcript library
       let rawTranscript = ""
+      let cleanUrl = videoUrl
       try {
-        const transcriptItems = await YoutubeTranscript.fetchTranscript(videoUrl)
+        const urlObj = new URL(videoUrl)
+        if (urlObj.pathname.includes('/live/')) {
+          const videoId = urlObj.pathname.split('/live/')[1].split('?')[0].split('/')[0]
+          cleanUrl = `https://www.youtube.com/watch?v=${videoId}`
+        } else if (urlObj.pathname.includes('/shorts/')) {
+          const videoId = urlObj.pathname.split('/shorts/')[1].split('?')[0].split('/')[0]
+          cleanUrl = `https://www.youtube.com/watch?v=${videoId}`
+        } else if (urlObj.hostname === 'youtu.be') {
+          const videoId = urlObj.pathname.replace('/', '').split('?')[0]
+          cleanUrl = `https://www.youtube.com/watch?v=${videoId}`
+        }
+      } catch (e) {
+        // ignore parsing errors and fallback to original url
+      }
+
+      try {
+        const transcriptItems = await YoutubeTranscript.fetchTranscript(cleanUrl)
         rawTranscript = transcriptItems.map(item => item.text).join(' ')
       } catch (err: any) {
         console.error('youtube-transcript fetch failed, using fallback:', err)
@@ -22,16 +39,15 @@ export class YouTubeService {
       const summary = await SummarizerService.generateSummary(rawTranscript, userId)
 
       // 3. Save to database
-      const supabase = await createClient()
-      const { data, error } = await supabase.from('youtube_sessions').insert({
-        user_id: userId,
-        video_url: videoUrl,
-        transcript: rawTranscript,
-        summary: summary,
-        quiz_generated: false
-      }).select().single()
-
-      if (error) throw error
+      const data = await prisma.youtubeSession.create({
+        data: {
+          userId,
+          videoUrl,
+          transcript: rawTranscript,
+          summary: typeof summary === 'string' ? summary : JSON.stringify(summary),
+          quizGenerated: false,
+        },
+      })
 
       return data
     } catch (error) {

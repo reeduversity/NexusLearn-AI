@@ -1,54 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { validateSession, apiResponse, apiError } from '@/lib/api-helper'
+import { ParserService } from '@/services/parser.service'
 
-export const runtime = 'nodejs'
-export const maxDuration = 30
-
-/**
- * POST /api/transcribe
- * Accepts a multipart/form-data body with an audio file,
- * proxies it to Groq Whisper, returns the transcript.
- * Keeps the GROQ_API_KEY server-side only.
- */
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    // Verify user is authenticated
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
+    const user = await validateSession()
     const formData = await req.formData()
-    const file = formData.get('file') as File | null
-
-    if (!file) {
-      return NextResponse.json({ error: 'No audio file provided' }, { status: 400 })
-    }
-
-    // Forward to Groq Whisper
-    const groqForm = new FormData()
-    groqForm.append('file', file, file.name || 'recording.webm')
-    groqForm.append('model', 'whisper-large-v3')
-    groqForm.append('language', 'en')
-    groqForm.append('response_format', 'json')
-
-    const groqRes = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
-      body: groqForm,
-    })
-
-    if (!groqRes.ok) {
-      const err = await groqRes.text()
-      console.error('Groq Whisper error:', err)
-      return NextResponse.json({ error: 'Transcription failed', detail: err }, { status: 502 })
-    }
-
-    const result = await groqRes.json()
-    return NextResponse.json({ success: true, text: result.text || '' })
-  } catch (err) {
-    console.error('Transcribe route error:', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const file = formData.get('file') as File
+    if (!file) return apiError('File is required', 400)
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const text = await ParserService.parseFile(buffer, file.type)
+    return apiResponse({ text })
+  } catch (error: any) {
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to transcribe file', error.message === 'Unauthorized' ? 401 : 500)
   }
 }

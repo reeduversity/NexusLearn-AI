@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import Link from 'next/link'
 import {
   FileText,
@@ -72,27 +73,22 @@ const careerModules = [
 ]
 
 export default async function CareerPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
+  
+  let interviewCount = 0
+  let resumeCount = 0
+  let atsReportCount = 0
 
-  const [
-    { count: interviewCount },
-    { count: resumeCount },
-    { count: atsReportCount },
-  ] = await Promise.all([
-    supabase
-      .from('interview_sessions')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user?.id),
-    supabase
-      .from('resumes')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user?.id),
-    supabase
-      .from('ats_reports')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user?.id),
-  ])
+  if (user) {
+    const [iCount, rCount, aCount] = await Promise.all([
+      prisma.interviewSession.count({ where: { userId: user.id } }),
+      prisma.resume.count({ where: { userId: user.id } }),
+      prisma.atsReport.count({ where: { userId: user.id } }),
+    ])
+    interviewCount = iCount
+    resumeCount = rCount
+    atsReportCount = aCount
+  }
 
   return (
     <div className="space-y-8">
@@ -112,7 +108,7 @@ export default async function CareerPage() {
               <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{interviewCount || 0}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{interviewCount}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400">Mock Interviews</p>
             </div>
           </div>
@@ -123,7 +119,7 @@ export default async function CareerPage() {
               <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{resumeCount || 0}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{resumeCount}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400">Resumes Created</p>
             </div>
           </div>
@@ -134,7 +130,7 @@ export default async function CareerPage() {
               <ScanSearch className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{atsReportCount || 0}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{atsReportCount}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400">ATS Reports</p>
             </div>
           </div>

@@ -1,9 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 
 export class ResearchService {
   /**
    * Synthesizes multiple source texts into a coherent research summary using Groq AI.
-   * Saves the result to the research_projects table in Supabase.
+   * Saves the result to the research_projects table.
    */
   static async synthesizeResearch(topic: string, sources: string[], userId: string) {
     const sourcesText = sources
@@ -48,29 +48,21 @@ export class ResearchService {
     const synthesis = data.choices[0].message.content
 
     // Save to research_projects table
-    const supabase = await createClient()
-    const { data: project, error } = await supabase
-      .from('research_projects')
-      .insert({
-        user_id: userId,
+    const project = await prisma.researchProject.create({
+      data: {
+        userId,
         title: topic,
         synthesis,
-        sources_count: sources.length,
+        sourcesCount: sources.length,
         status: 'completed',
-      })
-      .select()
-      .single()
-
-    if (error) {
-      throw new Error(`Failed to save research project: ${error.message}`)
-    }
+      },
+    })
 
     return { synthesis, project }
   }
 
   /**
    * Checks text for plagiarism patterns and academic integrity issues using AI.
-   * Returns an integrity score, issues found, and actionable suggestions.
    */
   static async checkAcademicIntegrity(text: string) {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -120,7 +112,6 @@ Do NOT include any text outside the JSON object.`
     const content = data.choices[0].message.content
 
     try {
-      // Extract JSON from potential markdown code blocks
       const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content]
       const parsed = JSON.parse(jsonMatch[1].trim())
       return parsed
@@ -225,7 +216,7 @@ Rules:
       const text = await res.text()
 
       const entries = text.split('<entry>')
-      entries.shift() // Remove header metadata block
+      entries.shift()
 
       const papers = entries.map(entry => {
         const titleMatch = entry.match(/<title>([\s\S]*?)<\/title>/)

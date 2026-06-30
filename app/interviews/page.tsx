@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
 import {
   MessageSquare,
   Send,
@@ -33,17 +32,11 @@ const interviewTypes = [
 ]
 
 export default function MockInterviewPage() {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-
   const [selectedType, setSelectedType] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [sessionStarted, setSessionStarted] = useState(false)
-  const [sessionId, setSessionId] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -57,42 +50,24 @@ export default function MockInterviewPage() {
     setLoading(true)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
-
       const typeName = interviewTypes.find((t) => t.id === typeId)?.label || typeId
 
-      // Create session in DB
-      const { data: session, error } = await supabase
-        .from('interview_sessions')
-        .insert({
-          user_id: user.id,
-          type: typeId,
-          status: 'in_progress',
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-      setSessionId(session.id)
-
       // Get opening question from AI
-      const response = await fetch('/api/career/mock-interview', {
+      const response = await fetch('/api/career/interview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           role: typeName,
           question: `Start a ${typeName} mock interview. Ask the first question.`,
-          isStart: true,
         }),
       })
 
       if (!response.ok) throw new Error('Failed to start interview')
 
-      const data = await response.json()
+      const { data } = await response.json()
       setMessages([{
         role: 'ai',
-        content: data.follow_up_question || `Welcome to your ${typeName} interview! Let me start with the first question.`,
+        content: data.followUpQuestion || data.follow_up_question || `Welcome to your ${typeName} interview! Let me start with the first question.`,
       }])
     } catch (err) {
       console.error('Failed to start interview:', err)
@@ -116,7 +91,7 @@ export default function MockInterviewPage() {
     try {
       const typeName = interviewTypes.find((t) => t.id === selectedType)?.label || selectedType || ''
 
-      const response = await fetch('/api/career/mock-interview', {
+      const response = await fetch('/api/career/interview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -127,12 +102,12 @@ export default function MockInterviewPage() {
 
       if (!response.ok) throw new Error('Failed to get response')
 
-      const data = await response.json()
+      const { data } = await response.json()
       setMessages((prev) => [
         ...prev,
         {
           role: 'ai',
-          content: data.follow_up_question || 'Good answer! Any other thoughts?',
+          content: data.followUpQuestion || data.follow_up_question || 'Good answer! Any other thoughts?',
           feedback: data.feedback,
           score: data.score,
           tips: data.tips,
@@ -150,16 +125,9 @@ export default function MockInterviewPage() {
   }
 
   const endSession = async () => {
-    if (sessionId) {
-      await supabase
-        .from('interview_sessions')
-        .update({ status: 'completed' })
-        .eq('id', sessionId)
-    }
     setSessionStarted(false)
     setSelectedType(null)
     setMessages([])
-    setSessionId(null)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

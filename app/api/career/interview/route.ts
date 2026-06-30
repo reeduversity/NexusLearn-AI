@@ -1,38 +1,24 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import { validateSession, apiResponse, apiError } from '@/lib/api-helper'
-import { InterviewService } from '@/services/interview.service'
+import { CareerService } from '@/services/career.service'
 import { z } from 'zod'
 
-const interviewSchema = z.object({
-  question: z.string().min(1),
-  transcript: z.string().min(1)
-})
+const interviewSchema = z.object({ role: z.string().min(1), question: z.string().min(1) })
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient()
-    const user = await validateSession(supabase)
-
+    const user = await validateSession()
     const body = await req.json()
     const parsed = interviewSchema.parse(body)
+    const result = await CareerService.conductMockInterview(parsed.role, parsed.question)
 
-    const feedback = await InterviewService.analyzeResponse(parsed.question, parsed.transcript)
-
-    // Log to interview_sessions
-    await supabase.from('interview_sessions').insert({
-      user_id: user.id,
-      session_data: {
-        question: parsed.question,
-        transcript: parsed.transcript,
-        feedback: feedback
-      }
+    await prisma.interviewSession.create({
+      data: { userId: user.id, role: parsed.role, questions: [{ q: parsed.question, ...result }], score: result.score, status: 'completed' },
     })
 
-    return apiResponse(feedback)
+    return apiResponse(result)
   } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return apiError(error.errors[0].message, 400)
-    }
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to analyze interview', error.message === 'Unauthorized' ? 401 : 500)
+    if (error instanceof z.ZodError) return apiError(error.errors[0].message, 400)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to conduct interview', error.message === 'Unauthorized' ? 401 : 500)
   }
 }

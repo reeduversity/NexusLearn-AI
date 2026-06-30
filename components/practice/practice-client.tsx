@@ -18,10 +18,10 @@ import {
 interface PracticeSession {
   id: string
   topic: string
-  total_questions: number
+  totalQuestions: number
   score: number | null
   status: string
-  created_at: string
+  createdAt: string | Date
 }
 
 export function PracticeClient({ initialSessions, userId }: { initialSessions: PracticeSession[], userId: string }) {
@@ -55,7 +55,7 @@ export function PracticeClient({ initialSessions, userId }: { initialSessions: P
     if (!sessionsByTopic[t]) {
       sessionsByTopic[t] = { totalQuestions: 0, avgScore: 0, bestScore: 0, completedCount: 0 }
     }
-    sessionsByTopic[t].totalQuestions += s.total_questions || 0
+    sessionsByTopic[t].totalQuestions += s.totalQuestions || 0
     if (s.status === 'completed' && s.score !== null) {
       sessionsByTopic[t].completedCount += 1
       sessionsByTopic[t].avgScore += s.score
@@ -122,10 +122,10 @@ export function PracticeClient({ initialSessions, userId }: { initialSessions: P
         const newSession: PracticeSession = {
           id: data.data.id,
           topic: data.data.topic,
-          total_questions: activeQuiz.questions.length,
+          totalQuestions: activeQuiz.questions.length,
           score: data.data.score,
           status: 'completed',
-          created_at: data.data.created_at
+          createdAt: data.data.createdAt || new Date().toISOString()
         }
         setSessions((prev) => [newSession, ...prev])
         setActiveQuiz(null)
@@ -294,7 +294,7 @@ export function PracticeClient({ initialSessions, userId }: { initialSessions: P
                 <div key={s.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50/50">
                   <div>
                     <p className="font-semibold text-sm text-gray-900 dark:text-white">{s.topic}</p>
-                    <p className="text-xs text-gray-400">{s.total_questions} questions • {new Date(s.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-gray-400">{s.totalQuestions} questions • {new Date(s.createdAt).toLocaleDateString()}</p>
                   </div>
                   <div className="text-right flex items-center gap-3">
                     {s.score !== null && (

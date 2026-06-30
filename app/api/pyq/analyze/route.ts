@@ -1,42 +1,18 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import { validateSession, apiResponse, apiError } from '@/lib/api-helper'
 import { PyqService } from '@/services/pyq.service'
-import { ParserService } from '@/services/parser.service'
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient()
-    await validateSession(supabase)
-
-    const formData = await req.formData()
-    const files = formData.getAll('files') as File[]
-
-    if (!files || files.length === 0) {
-      return apiError('No files uploaded', 400)
-    }
-
-    const parsedTexts: string[] = []
-
-    for (const file of files) {
-      if (!file.type.startsWith('image/')) {
-        const arrayBuffer = await file.arrayBuffer()
-        const buffer = Buffer.from(arrayBuffer)
-        const text = await ParserService.parseFile(buffer, file.type)
-        if (text && text.trim().length > 10) {
-          parsedTexts.push(text)
-        }
-      }
-    }
-
-    if (parsedTexts.length === 0) {
-      return apiError('Could not extract text from the provided files (images not supported yet).', 400)
-    }
-
-    const analysis = await PyqService.analyzePyqs(parsedTexts)
-
-    return apiResponse(analysis)
+    const user = await validateSession()
+    const body = await req.json()
+    const courseId = body.course_id
+    const papers = await prisma.pyqPaper.findMany({ where: { userId: user.id, ...(courseId ? { courseId } : {}) }, select: { content: true } })
+    const texts = papers.map(p => p.content).filter(Boolean) as string[]
+    if (texts.length === 0) return apiError('No PYQ papers found to analyze', 400)
+    const result = await PyqService.analyzePyqs(texts)
+    return apiResponse(result)
   } catch (error: any) {
-    console.error('PYQ API Error:', error)
     return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to analyze PYQs', error.message === 'Unauthorized' ? 401 : 500)
   }
 }

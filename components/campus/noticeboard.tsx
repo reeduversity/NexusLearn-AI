@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import {
   Megaphone,
   Plus,
@@ -14,39 +15,36 @@ interface NoticeboardProps {
 }
 
 export default async function Noticeboard({ activeTab = 'notice' }: NoticeboardProps) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
   // Fetch notices
-  const { data: notices } = await supabase
-    .from('digital_noticeboard')
-    .select('*, profiles(full_name, avatar_url)')
-    .eq('type', 'notice')
-    .order('created_at', { ascending: false })
-    .limit(20)
+  const notices = await prisma.digitalNoticeboard.findMany({
+    where: { type: 'notice' },
+    include: { user: { include: { profile: { select: { fullName: true } } } } },
+    orderBy: { createdAt: 'desc' },
+    take: 20
+  })
 
   // Fetch lost & found
-  const { data: lostFound } = await supabase
-    .from('digital_noticeboard')
-    .select('*, profiles(full_name, avatar_url)')
-    .eq('type', 'lost_found')
-    .order('created_at', { ascending: false })
-    .limit(20)
+  const lostFound = await prisma.digitalNoticeboard.findMany({
+    where: { type: 'lost_found' },
+    include: { user: { include: { profile: { select: { fullName: true } } } } },
+    orderBy: { createdAt: 'desc' },
+    take: 20
+  })
 
   const tabs = [
     {
       id: 'notice' as const,
       label: 'Notices',
-      count: (notices || []).length,
-      items: notices || [],
+      count: notices.length,
+      items: notices,
     },
     {
       id: 'lost_found' as const,
       label: 'Lost & Found',
-      count: (lostFound || []).length,
-      items: lostFound || [],
+      count: lostFound.length,
+      items: lostFound,
     },
   ]
 
@@ -137,12 +135,12 @@ export default async function Noticeboard({ activeTab = 'notice' }: NoticeboardP
                         <div className="flex items-center space-x-4 text-xs text-gray-400 dark:text-gray-500">
                           <div className="flex items-center">
                             <User className="mr-1 h-3 w-3" />
-                            <span>{item.profiles?.full_name || 'Anonymous'}</span>
+                            <span>{item.user?.profile?.fullName || 'Anonymous'}</span>
                           </div>
                           <div className="flex items-center">
                             <Clock className="mr-1 h-3 w-3" />
                             <span>
-                              {new Date(item.created_at).toLocaleDateString('en-US', {
+                              {new Date(item.createdAt).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
                                 hour: '2-digit',
@@ -151,7 +149,7 @@ export default async function Noticeboard({ activeTab = 'notice' }: NoticeboardP
                             </span>
                           </div>
                         </div>
-                        {item.user_id === user?.id && (
+                        {item.userId === user?.id && (
                           <span className="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-500 dark:bg-zinc-700 dark:text-gray-400">
                             Your post
                           </span>

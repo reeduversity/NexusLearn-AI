@@ -1,0 +1,790 @@
+// Prisma Schema for NexusLearn AI
+// Migrated from Supabase PostgreSQL to Neon PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+// ==========================================
+// 1. Core Auth & Profiles
+// ==========================================
+
+model User {
+  id               String   @id @default(uuid()) @db.Uuid
+  email            String   @unique @db.VarChar(255)
+  passwordHash     String?  @map("password_hash")
+  rawUserMetaData  Json?    @map("raw_user_meta_data") @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  // Relations
+  profile             Profile?
+  notifications       Notification[]
+  jobQueue            JobQueue[]
+  searchLogs          SearchLog[]
+  auditLogs           AuditLog[]
+  courses             Course[]
+  materials           Material[]
+  notes               Note[]
+  pyqPapers           PyqPaper[]
+  vivaSessions        VivaSession[]
+  mockTests           MockTest[]
+  practiceSessions    PracticeSession[]
+  studyPlans          StudyPlan[]
+  assignments         Assignment[]
+  examPredictions     ExamPrediction[]
+  researchProjects    ResearchProject[]
+  citations           Citation[]
+  resumes             Resume[]
+  atsReports          AtsReport[]
+  interviewSessions   InterviewSession[]
+  projects            Project[]
+  projectMembers      ProjectMember[]
+  projectTasksAssigned ProjectTask[]    @relation("AssignedTasks")
+  projectMessages     ProjectMessage[]
+  studyGroupMembers   StudyGroupMember[]
+  groupMessages       GroupMessage[]
+  digitalNoticeboards DigitalNoticeboard[]
+  budgetEntries       BudgetEntry[]
+  focusSessions       FocusSession[]
+  wellbeingLogs       WellbeingLog[]
+  youtubeSessions     YoutubeSession[]
+  ocrJobs             OcrJob[]
+  quizAttempts        QuizAttempt[]
+  studySessions       StudySession[]
+  weaknesses          Weakness[]
+  presence            Presence?
+  resources           Resource[]
+  quizzes             Quiz[]
+  chatSessions        ChatSession[]
+  savingsGoals        SavingsGoal[]
+  passwordResetTokens PasswordResetToken[]
+
+  @@map("users")
+}
+
+model Profile {
+  id                 String   @id @db.Uuid
+  fullName           String   @map("full_name")
+  university         String?
+  course             String?
+  themePreference    String   @default("system") @map("theme_preference")
+  avatarUrl          String?  @map("avatar_url")
+  emailNotifications Boolean  @default(true) @map("email_notifications")
+  pushNotifications  Boolean  @default(true) @map("push_notifications")
+  studyReminders     Boolean  @default(true) @map("study_reminders")
+  weeklyDigest       Boolean  @default(true) @map("weekly_digest")
+  aiModel            String   @default("llama-4-scout") @map("ai_model")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user User @relation(fields: [id], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at") @db.Timestamptz()
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("password_reset_tokens")
+}
+
+// ==========================================
+// 2. Infrastructure & Background Systems
+// ==========================================
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+model JobQueue {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  jobType   String   @map("job_type")
+  payload   Json     @db.JsonB
+  status    String   @default("pending")
+  retries   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("job_queue")
+}
+
+model SearchLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  query        String
+  resultsCount Int      @default(0) @map("results_count")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("search_logs")
+}
+
+model AiConfig {
+  id            String @id @default(uuid()) @db.Uuid
+  featureName   String @unique @map("feature_name")
+  modelName     String @map("model_name")
+  promptVersion String @map("prompt_version")
+  temperature   Float  @default(0.7)
+  maxTokens     Int    @default(1024) @map("max_tokens")
+
+  @@map("ai_configs")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  action    String
+  module    String
+  metadata  Json?    @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+// ==========================================
+// 3. Study & Materials
+// ==========================================
+
+model Course {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String
+  code      String?
+  semester  String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  materials Material[]
+
+  @@index([userId])
+  @@map("courses")
+}
+
+model Material {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  courseId   String?  @map("course_id") @db.Uuid
+  title     String
+  type      String
+  url       String
+  status    String   @default("uploaded")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course  Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  notes   Note[]
+  quizzes Quiz[]
+
+  @@index([userId])
+  @@map("materials")
+}
+
+model Note {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  materialId String?  @map("material_id") @db.Uuid
+  title      String
+  content    String
+  embedding  Float[]
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  material Material? @relation(fields: [materialId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("notes")
+}
+
+// ==========================================
+// 4. Exams & Practice Engine
+// ==========================================
+
+model PyqPaper {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  courseId   String?  @map("course_id")
+  content   String?
+  year      Int
+  topicTags Json     @default("[]") @map("topic_tags") @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("pyq_papers")
+}
+
+model VivaSession {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  topic     String
+  questions Json     @default("[]") @db.JsonB
+  score     Int?
+  status    String   @default("in_progress")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("viva_sessions")
+}
+
+model MockTest {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  courseId   String?  @map("course_id")
+  content   Json     @default("[]") @db.JsonB
+  score     Int?
+  status    String   @default("pending")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("mock_tests")
+}
+
+model PracticeSession {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  topic          String
+  totalQuestions Int      @default(0) @map("total_questions")
+  score          Int?
+  status         String   @default("in_progress")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("practice_sessions")
+}
+
+model StudyPlan {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  title      String
+  targetDate DateTime? @map("target_date") @db.Timestamptz()
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments Assignment[]
+
+  @@index([userId])
+  @@map("study_plans")
+}
+
+model Assignment {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  planId    String?  @map("plan_id") @db.Uuid
+  title     String
+  priority  String   @default("medium")
+  status    String   @default("pending")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan StudyPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("assignments")
+}
+
+model ExamPrediction {
+  id       String   @id @default(uuid()) @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  title    String
+  examDate DateTime @map("exam_date") @db.Timestamptz()
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("exam_predictions")
+}
+
+// ==========================================
+// 5. Research & Citation
+// ==========================================
+
+model ResearchProject {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  title        String
+  synthesis    String?
+  sourcesCount Int      @default(0) @map("sources_count")
+  status       String   @default("pending")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("research_projects")
+}
+
+model Citation {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  title          String
+  author         String?
+  year           String?
+  url            String?
+  format         String
+  citationOutput String?  @map("citation_output")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("citations")
+}
+
+// ==========================================
+// 6. Career Development
+// ==========================================
+
+model Resume {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  title      String
+  resumeText String   @map("resume_text")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("resumes")
+}
+
+model AtsReport {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  resumeText       String   @map("resume_text")
+  score            Int?
+  summary          String?
+  strengths        Json     @default("[]") @db.JsonB
+  suggestions      Json     @default("[]") @db.JsonB
+  missingKeywords  Json     @default("[]") @map("missing_keywords") @db.JsonB
+  formattingIssues Json     @default("[]") @map("formatting_issues") @db.JsonB
+  sectionScores    Json     @default("{}") @map("section_scores") @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("ats_reports")
+}
+
+model InterviewSession {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      String
+  questions Json     @default("[]") @db.JsonB
+  score     Int?
+  status    String   @default("in_progress")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("interview_sessions")
+}
+
+model Scholarship {
+  id          String    @id @default(uuid()) @db.Uuid
+  title       String
+  description String?
+  amount      Float?
+  deadline    DateTime? @db.Timestamptz()
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@map("scholarships")
+}
+
+model Internship {
+  id          String    @id @default(uuid()) @db.Uuid
+  title       String
+  company     String
+  description String?
+  location    String?
+  deadline    DateTime? @db.Timestamptz()
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@map("internships")
+}
+
+// ==========================================
+// 7. Projects & Collaboration
+// ==========================================
+
+model Project {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  title       String
+  description String?
+  status      String   @default("in_progress")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  members  ProjectMember[]
+  tasks    ProjectTask[]
+  messages ProjectMessage[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("member")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("project_members")
+}
+
+model ProjectTask {
+  id         String    @id @default(uuid()) @db.Uuid
+  projectId  String    @map("project_id") @db.Uuid
+  title      String
+  assignedTo String?   @map("assigned_to") @db.Uuid
+  status     String    @default("pending")
+  dueDate    DateTime? @map("due_date") @db.Timestamptz()
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedUser User? @relation("AssignedTasks", fields: [assignedTo], references: [id], onDelete: SetNull)
+
+  @@map("project_tasks")
+}
+
+model ProjectMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  message   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("project_messages")
+}
+
+// ==========================================
+// 8. Campus & Noticeboard
+// ==========================================
+
+model StudyGroup {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  tags        Json     @default("[]") @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  members  StudyGroupMember[]
+  messages GroupMessage[]
+
+  @@map("study_groups")
+}
+
+model StudyGroupMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  groupId   String   @map("group_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  group StudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("study_group_members")
+}
+
+model GroupMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  groupId   String   @map("group_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  message   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  group StudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("group_messages")
+}
+
+model Event {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  description String?
+  date        DateTime @db.Timestamptz()
+  location    String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@map("events")
+}
+
+model CampusMap {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  latitude    Float?
+  longitude   Float?
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@map("campus_maps")
+}
+
+model DigitalNoticeboard {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String
+  message   String
+  type      String   // notice, lost_found
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("digital_noticeboard")
+}
+
+model SafetyAlert {
+  id        String   @id @default(uuid()) @db.Uuid
+  title     String
+  message   String
+  severity  String   @default("info")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@map("safety_alerts")
+}
+
+// ==========================================
+// 9. Finance & Wellbeing
+// ==========================================
+
+model BudgetEntry {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  amount      Float
+  category    String
+  type        String   // income, expense
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("budget_entries")
+}
+
+model FocusSession {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  durationMinutes Int      @map("duration_minutes")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("focus_sessions")
+}
+
+model WellbeingLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  mood      Int
+  energy    Int
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("wellbeing_logs")
+}
+
+model YoutubeSession {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  videoUrl      String   @map("video_url")
+  transcript    String?
+  summary       String?
+  quizGenerated Boolean  @default(false) @map("quiz_generated")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("youtube_sessions")
+}
+
+model OcrJob {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  imageUrl      String   @map("image_url")
+  extractedText String?  @map("extracted_text")
+  solvedOutput  String?  @map("solved_output")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("ocr_jobs")
+}
+
+model QuizAttempt {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  topic     String
+  score     Int
+  maxScore  Int      @map("max_score")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("quiz_attempts")
+}
+
+model StudySession {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  durationMinutes Int      @map("duration_minutes")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("study_sessions")
+}
+
+model Weakness {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  topic           String
+  currentStrength Float    @map("current_strength")
+  status          String   @default("active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topic])
+  @@index([userId])
+  @@map("weaknesses")
+}
+
+model Presence {
+  id       String   @id @default(uuid()) @db.Uuid
+  userId   String   @unique @map("user_id") @db.Uuid
+  status   String   @default("online")
+  lastSeen DateTime @default(now()) @map("last_seen") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("presence")
+}
+
+model Resource {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String
+  url       String
+  type      String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("resources")
+}
+
+// ==========================================
+// 10. Additional Tables (from 0001 migration)
+// ==========================================
+
+model Quiz {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  materialId String?  @map("material_id") @db.Uuid
+  questions  Json     @default("[]") @db.JsonB
+  difficulty String?
+  language   String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  material Material? @relation(fields: [materialId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("quizzes")
+}
+
+model ChatSession {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  contextType String?  @map("context_type")
+  messages    Json     @default("[]") @db.JsonB
+  materialIds String[] @default([]) @map("material_ids") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("chat_sessions")
+}
+
+model SavingsGoal {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  name      String
+  target    Decimal
+  current   Decimal   @default(0)
+  deadline  DateTime? @db.Date
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("savings_goals")
+}

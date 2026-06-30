@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import { ProfileForm } from '@/components/profile/profile-form'
 import { User, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
@@ -6,8 +7,7 @@ import Link from 'next/link'
 export const metadata = { title: 'My Profile | NexusLearn AI' }
 
 export default async function ProfilePage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
   if (!user) {
     return (
@@ -18,18 +18,16 @@ export default async function ProfilePage() {
   }
 
   // Fetch from public profiles
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  const profile = await prisma.profile.findUnique({
+    where: { id: user.id }
+  })
 
   const initialData = {
-    fullName: profile?.full_name || user.user_metadata?.full_name || '',
+    fullName: profile?.fullName || user.name || '',
     email: user.email || '',
-    university: profile?.university || user.user_metadata?.university || '',
-    course: profile?.course || user.user_metadata?.course || '',
-    theme: profile?.theme_preference || 'system'
+    university: profile?.university || '',
+    course: profile?.course || '',
+    theme: profile?.themePreference || 'system'
   }
 
   return (

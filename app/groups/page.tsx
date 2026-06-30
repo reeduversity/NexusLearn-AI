@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import {
   Users,
   Search,
@@ -14,63 +15,46 @@ import Link from 'next/link'
 export const metadata = { title: 'Study Groups | NexusLearn AI' }
 
 export default async function GroupsPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
   // Fetch groups the user belongs to
-  const { data: memberships } = await supabase
-    .from('study_group_members')
-    .select(`
-      group_id,
-      joined_at,
-      study_groups(
-        id,
-        name,
-        subject,
-        description,
-        tags,
-        max_members,
-        created_at
-      )
-    `)
-    .eq('user_id', user?.id)
-    .order('joined_at', { ascending: false })
+  const memberships = user ? await prisma.studyGroupMember.findMany({
+    where: { userId: user.id },
+    include: { group: true },
+    orderBy: { createdAt: 'desc' }
+  }) : []
 
   // Get member counts and online status for each group
   const groups = await Promise.all(
-    (memberships || []).map(async (membership: any) => {
-      const group = membership.study_groups
+    memberships.map(async (membership) => {
+      const group = membership.group
       if (!group) return null
 
       // Get total members count
-      const { count: memberCount } = await supabase
-        .from('study_group_members')
-        .select('*', { count: 'exact', head: true })
-        .eq('group_id', group.id)
+      const memberCount = await prisma.studyGroupMember.count({
+        where: { groupId: group.id }
+      })
 
       // Get online members (presence within last 5 minutes)
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
-      const { count: onlineCount } = await supabase
-        .from('presence')
-        .select('*', { count: 'exact', head: true })
-        .in(
-          'user_id',
-          (
-            await supabase
-              .from('study_group_members')
-              .select('user_id')
-              .eq('group_id', group.id)
-          ).data?.map((m: any) => m.user_id) || []
-        )
-        .gte('last_seen', fiveMinutesAgo)
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+      const groupMembers = await prisma.studyGroupMember.findMany({
+        where: { groupId: group.id },
+        select: { userId: true }
+      })
+      const memberIds = groupMembers.map(m => m.userId)
+      
+      const onlineCount = await prisma.presence.count({
+        where: {
+          userId: { in: memberIds },
+          lastSeen: { gte: fiveMinutesAgo }
+        }
+      })
 
       return {
         ...group,
-        memberCount: memberCount || 0,
-        onlineCount: onlineCount || 0,
-        joinedAt: membership.joined_at,
+        memberCount,
+        onlineCount,
+        joinedAt: membership.createdAt,
       }
     })
   )
@@ -78,19 +62,16 @@ export default async function GroupsPage() {
   const validGroups = groups.filter(Boolean)
 
   // Fetch suggested groups (groups user is NOT in)
-  const joinedGroupIds = validGroups.map((g: any) => g.id)
+  const joinedGroupIds = validGroups.map(g => g?.id).filter(Boolean)
 
-  let suggestedQuery = supabase
-    .from('study_groups')
-    .select('*, study_group_members(count)')
-    .order('created_at', { ascending: false })
-    .limit(4)
-
-  if (joinedGroupIds.length > 0) {
-    suggestedQuery = suggestedQuery.not('id', 'in', `(${joinedGroupIds.join(',')})`)
-  }
-
-  const { data: suggestedGroups } = await suggestedQuery
+  const suggestedGroups = await prisma.studyGroup.findMany({
+    where: joinedGroupIds.length > 0 ? { id: { notIn: joinedGroupIds as string[] } } : {},
+    include: {
+      _count: { select: { members: true } }
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 4
+  })
 
   return (
     <div className="space-y-8">
@@ -176,7 +157,7 @@ export default async function GroupsPage() {
                     <Users className="mr-1 h-3.5 w-3.5" />
                     <span>
                       {group.memberCount}
-                      {group.max_members ? `/${group.max_members}` : ''} members
+                      {group.maxMembers ? `/${group.maxMembers}` : ''} members
                     </span>
                   </div>
                 </div>
@@ -245,10 +226,7 @@ export default async function GroupsPage() {
           </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {suggestedGroups.map((group: any) => {
-              const memberCount =
-                Array.isArray(group.study_group_members) && group.study_group_members.length > 0
-                  ? group.study_group_members[0].count
-                  : 0
+              const memberCount = group._count?.members || 0
 
               return (
                 <div

@@ -1,27 +1,14 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import { validateSession, apiResponse, apiError } from '@/lib/api-helper'
 import { z } from 'zod'
 
-const materialSchema = z.object({
-  course_id: z.string().uuid(),
-  title: z.string().min(1),
-  type: z.enum(['pdf', 'video', 'docx']),
-  url: z.string().url()
-})
+const materialSchema = z.object({ title: z.string().min(1), type: z.string().min(1), url: z.string().min(1), course_id: z.string().uuid().optional().nullable() })
 
 export async function GET() {
   try {
-    const supabase = await createClient()
-    const user = await validateSession(supabase)
-
-    const { data, error } = await supabase
-      .from('materials')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-
-    if (error) throw error
-    return apiResponse(data)
+    const user = await validateSession()
+    const materials = await prisma.material.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } })
+    return apiResponse(materials)
   } catch (error: any) {
     return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to fetch materials', error.message === 'Unauthorized' ? 401 : 500)
   }
@@ -29,31 +16,13 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient()
-    const user = await validateSession(supabase)
-
+    const user = await validateSession()
     const body = await req.json()
     const parsed = materialSchema.parse(body)
-
-    const { data, error } = await supabase
-      .from('materials')
-      .insert({
-        user_id: user.id,
-        course_id: parsed.course_id,
-        title: parsed.title,
-        type: parsed.type,
-        url: parsed.url,
-        status: 'uploaded'
-      })
-      .select()
-      .single()
-
-    if (error) throw error
-    return apiResponse(data, 201)
+    const material = await prisma.material.create({ data: { userId: user.id, title: parsed.title, type: parsed.type, url: parsed.url, courseId: parsed.course_id || null } })
+    return apiResponse(material, 201)
   } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return apiError(error.errors[0].message, 400)
-    }
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to upload material', error.message === 'Unauthorized' ? 401 : 500)
+    if (error instanceof z.ZodError) return apiError(error.errors[0].message, 400)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to save material', error.message === 'Unauthorized' ? 401 : 500)
   }
 }

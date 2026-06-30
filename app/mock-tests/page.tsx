@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import { MockTestsClient } from '@/components/mock-tests/mock-tests-client'
 import Link from 'next/link'
 import { ArrowLeft, ClipboardList } from 'lucide-react'
@@ -6,8 +7,7 @@ import { ArrowLeft, ClipboardList } from 'lucide-react'
 export const metadata = { title: 'Mock Tests | NexusLearn AI' }
 
 export default async function MockTestsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
   if (!user) {
     return (
@@ -18,11 +18,10 @@ export default async function MockTestsPage() {
   }
 
   // Fetch all mock tests for the user
-  const { data: mockTests } = await supabase
-    .from('mock_tests')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
+  const mockTests = await prisma.mockTest.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: 'desc' }
+  })
 
   return (
     <div className="space-y-6">

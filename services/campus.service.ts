@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 
 export class CampusService {
   /**
@@ -7,35 +7,34 @@ export class CampusService {
    */
   static async matchStudyGroups(userId: string, interests: string[]) {
     try {
-      const supabase = await createClient()
+      // Fetch groups the user already belongs to
+      const userGroups = await prisma.studyGroupMember.findMany({
+        where: { userId },
+        select: { groupId: true },
+      })
 
-      // Fetch all study groups the user is NOT already a member of
-      const { data: userGroups } = await supabase
-        .from('study_group_members')
-        .select('group_id')
-        .eq('user_id', userId)
+      const joinedGroupIds = userGroups.map((g) => g.groupId)
 
-      const joinedGroupIds = (userGroups || []).map((g) => g.group_id)
+      // Fetch all groups not already joined, ordered by recent
+      const allGroups = await prisma.studyGroup.findMany({
+        where: joinedGroupIds.length > 0
+          ? { id: { notIn: joinedGroupIds } }
+          : undefined,
+        include: {
+          _count: { select: { members: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
 
-      let query = supabase
-        .from('study_groups')
-        .select('*, study_group_members(count)')
-        .order('created_at', { ascending: false })
-
-      if (joinedGroupIds.length > 0) {
-        query = query.not('id', 'in', `(${joinedGroupIds.join(',')})`)
-      }
-
-      // Filter groups that match any of the user's interests via subject/tags overlap
+      // Filter by tag overlap if interests provided
       if (interests.length > 0) {
-        query = query.overlaps('tags', interests)
+        return allGroups.filter((group) => {
+          const tags = (group.tags as string[]) || []
+          return tags.some((tag) => interests.includes(tag))
+        })
       }
 
-      const { data: matchedGroups, error } = await query
-
-      if (error) throw error
-
-      return matchedGroups || []
+      return allGroups
     } catch (error) {
       console.error('Study group matching failed:', error)
       throw new Error('Failed to match study groups')
@@ -47,17 +46,11 @@ export class CampusService {
    */
   static async getPresenceStatus(userId: string) {
     try {
-      const supabase = await createClient()
+      const presence = await prisma.presence.findUnique({
+        where: { userId },
+      })
 
-      const { data: presence, error } = await supabase
-        .from('presence')
-        .select('*')
-        .eq('user_id', userId)
-        .single()
-
-      if (error && error.code !== 'PGRST116') throw error
-
-      return presence || { status: 'offline', last_seen: null }
+      return presence || { status: 'offline', lastSeen: null }
     } catch (error) {
       console.error('Presence fetch failed:', error)
       throw new Error('Failed to fetch presence status')
@@ -74,20 +67,14 @@ export class CampusService {
     type: 'notice' | 'lost_found'
   ) {
     try {
-      const supabase = await createClient()
-
-      const { data, error } = await supabase
-        .from('digital_noticeboard')
-        .insert({
-          user_id: userId,
+      const data = await prisma.digitalNoticeboard.create({
+        data: {
+          userId,
           title,
           message,
           type,
-        })
-        .select()
-        .single()
-
-      if (error) throw error
+        },
+      })
 
       return data
     } catch (error) {
@@ -101,21 +88,20 @@ export class CampusService {
    */
   static async getNoticeboardEntries(type?: 'notice' | 'lost_found') {
     try {
-      const supabase = await createClient()
-
-      let query = supabase
-        .from('digital_noticeboard')
-        .select('*, profiles(full_name, avatar_url)')
-        .order('created_at', { ascending: false })
-        .limit(50)
-
-      if (type) {
-        query = query.eq('type', type)
-      }
-
-      const { data, error } = await query
-
-      if (error) throw error
+      const data = await prisma.digitalNoticeboard.findMany({
+        where: type ? { type } : undefined,
+        include: {
+          user: {
+            include: {
+              profile: {
+                select: { fullName: true, avatarUrl: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      })
 
       return data || []
     } catch (error) {
@@ -129,15 +115,10 @@ export class CampusService {
    */
   static async getSafetyAlerts() {
     try {
-      const supabase = await createClient()
-
-      const { data, error } = await supabase
-        .from('safety_alerts')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20)
-
-      if (error) throw error
+      const data = await prisma.safetyAlert.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      })
 
       return data || []
     } catch (error) {

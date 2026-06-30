@@ -1,45 +1,25 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import { validateSession, apiResponse, apiError } from '@/lib/api-helper'
 import { ScholarshipService } from '@/services/scholarship.service'
-import { z } from 'zod'
 
-const schema = z.object({
-  profile: z.string().min(10, 'Please provide more details about your profile.')
-})
+export async function GET() {
+  try {
+    await validateSession()
+    const scholarships = await prisma.scholarship.findMany({ orderBy: { createdAt: 'desc' } })
+    return apiResponse(scholarships)
+  } catch (error: any) {
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to fetch scholarships', error.message === 'Unauthorized' ? 401 : 500)
+  }
+}
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient()
-    const user = await validateSession(supabase)
-
+    const user = await validateSession()
     const body = await req.json()
-    const parsed = schema.parse(body)
-
-    const matches = await ScholarshipService.findMatches(parsed.profile)
-
-    // Log the search (optional but good for tracking)
-    await supabase.from('search_logs').insert({
-      user_id: user.id,
-      search_type: 'scholarship',
-      query: parsed.profile
-    }).select().single() // Fire and forget basically, although we await it here
-
+    const matches = await ScholarshipService.findMatches(body.profile || '')
+    await prisma.searchLog.create({ data: { userId: user.id, query: 'scholarship_search', resultsCount: matches?.length || 0 } }).catch(() => {})
     return apiResponse(matches)
   } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return apiError(error.errors[0].message, 400)
-    }
-    // Note: search_logs table might not exist, let's catch postgrest errors gracefully
-    if (error.code && error.code.startsWith('42')) {
-      // Table missing, ignore log failure
-      try {
-        const body = await req.json()
-        const matches = await ScholarshipService.findMatches(schema.parse(body).profile)
-        return apiResponse(matches)
-      } catch (innerErr) {
-        // Fallthrough
-      }
-    }
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to find scholarships', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to find scholarship matches', error.message === 'Unauthorized' ? 401 : 500)
   }
 }

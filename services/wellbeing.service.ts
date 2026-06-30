@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 
 export class WellbeingService {
   /**
@@ -11,32 +11,28 @@ export class WellbeingService {
     suggestion: string
     avgDailyHours: number
   }> {
-    const supabase = await createClient()
-
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-    const cutoff = sevenDaysAgo.toISOString()
+    const cutoff = sevenDaysAgo
 
     // Fetch study sessions and focus sessions in parallel
-    const [{ data: studySessions }, { data: focusSessions }] = await Promise.all([
-      supabase
-        .from('study_sessions')
-        .select('duration_minutes')
-        .eq('user_id', userId)
-        .gte('created_at', cutoff),
-      supabase
-        .from('focus_sessions')
-        .select('duration_minutes')
-        .eq('user_id', userId)
-        .gte('created_at', cutoff),
+    const [studySessions, focusSessions] = await Promise.all([
+      prisma.studySession.findMany({
+        where: { userId, createdAt: { gte: cutoff } },
+        select: { durationMinutes: true },
+      }),
+      prisma.focusSession.findMany({
+        where: { userId, createdAt: { gte: cutoff } },
+        select: { durationMinutes: true },
+      }),
     ])
 
     const totalStudyMinutes = (studySessions || []).reduce(
-      (sum, s) => sum + (s.duration_minutes || 0),
+      (sum, s) => sum + (s.durationMinutes || 0),
       0
     )
     const totalFocusMinutes = (focusSessions || []).reduce(
-      (sum, s) => sum + (s.duration_minutes || 0),
+      (sum, s) => sum + (s.durationMinutes || 0),
       0
     )
 
@@ -82,18 +78,17 @@ export class WellbeingService {
     balance: number
     topCategory: string
   }> {
-    const supabase = await createClient()
-
     const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
-    const { data: entries } = await supabase
-      .from('budget_entries')
-      .select('amount, type, category')
-      .eq('user_id', userId)
-      .gte('created_at', startOfMonth)
-      .lte('created_at', endOfMonth)
+    const entries = await prisma.budgetEntry.findMany({
+      where: {
+        userId,
+        createdAt: { gte: startOfMonth, lte: endOfMonth },
+      },
+      select: { amount: true, type: true, category: true },
+    })
 
     if (!entries || entries.length === 0) {
       return { totalIncome: 0, totalExpenses: 0, balance: 0, topCategory: 'N/A' }
@@ -139,38 +134,32 @@ export class WellbeingService {
     energy: number,
     notes: string
   ): Promise<{ success: boolean; error?: string }> {
-    const supabase = await createClient()
-
-    const { error } = await supabase.from('wellbeing_logs').insert({
-      user_id: userId,
-      mood,
-      energy,
-      notes,
-      created_at: new Date().toISOString(),
-    })
-
-    if (error) {
+    try {
+      await prisma.wellbeingLog.create({
+        data: {
+          userId,
+          mood,
+          energy,
+          notes,
+        },
+      })
+      return { success: true }
+    } catch (error: any) {
       return { success: false, error: error.message }
     }
-
-    return { success: true }
   }
 
   /**
    * Fetches recent wellbeing logs for the user.
    */
   static async getRecentLogs(userId: string, limit = 10) {
-    const supabase = await createClient()
+    const data = await prisma.wellbeingLog.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
 
-    const { data, error } = await supabase
-      .from('wellbeing_logs')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(limit)
-
-    if (error) return []
-    return data
+    return data || []
   }
 
   /**

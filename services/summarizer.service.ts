@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 
 export class SummarizerService {
   /**
@@ -13,7 +13,7 @@ export class SummarizerService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'llama-3.1-8b-instant',
           messages: [
             {
               role: 'system',
@@ -29,10 +29,11 @@ Return ONLY a valid JSON object with the following structure:
             },
             {
               role: 'user',
-              content: text.slice(0, 15000)
+              content: text.slice(0, 8000)
             }
           ],
           temperature: 0.3,
+          max_tokens: 1000,
           response_format: { type: 'json_object' }
         }),
       })
@@ -42,14 +43,17 @@ Return ONLY a valid JSON object with the following structure:
       }
 
       const data = await response.json()
-      const structuredData = JSON.parse(data.choices[0].message.content)
+      let content = data.choices[0].message.content
+      content = content.replace(/```json/g, '').replace(/```/g, '').trim()
+      const structuredData = JSON.parse(content)
 
       // Automatically save to DB
-      const supabase = await createClient()
-      await supabase.from('notes').insert({
-        user_id: userId,
-        title: structuredData.title || 'AI Generated Summary',
-        content: JSON.stringify(structuredData)
+      await prisma.note.create({
+        data: {
+          userId,
+          title: structuredData.title || 'AI Generated Summary',
+          content: JSON.stringify(structuredData),
+        },
       })
 
       return structuredData

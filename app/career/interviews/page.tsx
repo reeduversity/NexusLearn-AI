@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useRef } from 'react'
-import { MessageSquare, Play, Video, Mic, StopCircle, CheckCircle2, ChevronRight, User, Bot, Loader2 } from 'lucide-react'
+import { MessageSquare, Play, Video, Mic, StopCircle, CheckCircle2, ChevronRight, User, Bot, Loader2, AlertCircle } from 'lucide-react'
 import clsx from 'clsx'
 
 const QUESTION_BANK = [

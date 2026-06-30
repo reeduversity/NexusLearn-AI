@@ -26,11 +26,11 @@ interface Question {
 
 interface MockTest {
   id: string
-  course_id: string
-  content: Question[] | { questions: Question[] }
+  courseId: string | null
+  content: any
   score: number | null
   status: string
-  created_at: string
+  createdAt: string | Date
 }
 
 export function MockTestsClient({ initialTests, userId }: { initialTests: MockTest[], userId: string }) {
@@ -142,7 +142,7 @@ export function MockTestsClient({ initialTests, userId }: { initialTests: MockTe
         <div className="flex items-center justify-between border-b border-gray-200 dark:border-zinc-800 pb-4 mb-6">
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              Mock Test: {activeTest.course_id}
+              Mock Test: {activeTest.courseId}
             </h2>
             <p className="text-xs text-gray-500 mt-1">
               Question {currentQuestionIdx + 1} of {questions.length}
@@ -295,12 +295,12 @@ export function MockTestsClient({ initialTests, userId }: { initialTests: MockTe
                     {isCompleted ? 'Completed' : 'Pending'}
                   </span>
                   <span className="text-xs text-gray-400">
-                    {new Date(test.created_at).toLocaleDateString()}
+                    {new Date(test.createdAt).toLocaleDateString()}
                   </span>
                 </div>
 
                 <h3 className="font-semibold text-gray-900 dark:text-white">
-                  Mock Test - {test.course_id}
+                  Mock Test - {test.courseId}
                 </h3>
                 <p className="text-xs text-gray-500 mt-1">{qList.length} Questions</p>
 

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import {
   ShieldAlert,
   AlertTriangle,
@@ -54,7 +54,7 @@ function getConfig(type: string) {
   return severityConfig[type?.toLowerCase()] || severityConfig.info
 }
 
-function getRelativeTime(dateString: string): string {
+function getRelativeTime(dateString: string | Date): string {
   const now = new Date()
   const date = new Date(dateString)
   const diffMs = now.getTime() - date.getTime()
@@ -70,17 +70,14 @@ function getRelativeTime(dateString: string): string {
 }
 
 export default async function SafetyAlerts() {
-  const supabase = await createClient()
+  const alerts = await prisma.safetyAlert.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 20
+  })
 
-  const { data: alerts } = await supabase
-    .from('safety_alerts')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(20)
-
-  const emergencyAlerts = (alerts || []).filter((a) => a.type === 'emergency')
-  const warningAlerts = (alerts || []).filter((a) => a.type === 'warning')
-  const infoAlerts = (alerts || []).filter((a) => a.type === 'info')
+  const emergencyAlerts = alerts.filter((a) => a.severity === 'emergency')
+  const warningAlerts = alerts.filter((a) => a.severity === 'warning')
+  const infoAlerts = alerts.filter((a) => a.severity === 'info')
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden">
@@ -108,7 +105,7 @@ export default async function SafetyAlerts() {
         {alerts && alerts.length > 0 ? (
           <div className="space-y-3">
             {alerts.map((alert: any) => {
-              const config = getConfig(alert.type)
+              const config = getConfig(alert.severity)
               const IconComponent = config.icon
 
               return (
@@ -123,12 +120,12 @@ export default async function SafetyAlerts() {
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-bold uppercase ${config.badge} ${config.badgeText}`}
                       >
-                        {alert.type}
+                        {alert.severity}
                       </span>
                     </div>
                     <div className="flex items-center text-xs text-gray-400 dark:text-gray-500">
                       <Clock className="mr-1 h-3 w-3" />
-                      <span>{getRelativeTime(alert.created_at)}</span>
+                      <span>{getRelativeTime(alert.createdAt)}</span>
                     </div>
                   </div>
 
@@ -139,7 +136,7 @@ export default async function SafetyAlerts() {
                   {/* Alert Footer */}
                   <div className="mt-3 flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
                     <span>
-                      {new Date(alert.created_at).toLocaleDateString('en-US', {
+                      {new Date(alert.createdAt).toLocaleDateString('en-US', {
                         weekday: 'short',
                         month: 'short',
                         day: 'numeric',
@@ -147,12 +144,6 @@ export default async function SafetyAlerts() {
                         minute: '2-digit',
                       })}
                     </span>
-                    {alert.resolved && (
-                      <span className="flex items-center text-green-600 dark:text-green-400">
-                        <CheckCircle2 className="mr-1 h-3 w-3" />
-                        Resolved
-                      </span>
-                    )}
                   </div>
                 </div>
               )
@@ -198,7 +189,7 @@ export default async function SafetyAlerts() {
               )}
             </div>
             <span>
-              Last updated: {getRelativeTime(alerts[0].created_at)}
+              Last updated: {getRelativeTime(alerts[0].createdAt)}
             </span>
           </div>
         </div>

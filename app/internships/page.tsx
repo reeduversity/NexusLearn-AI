@@ -103,7 +103,7 @@ export default function InternshipMatchmakerPage() {
                 </label>
                 <textarea
                   rows={5}
-                  placeholder="e.g. React, Next.js, TypeScript, Tailwind CSS, Supabase, Node.js. Looking for remote frontend roles..."
+                  placeholder="e.g. React, Next.js, TypeScript, Tailwind CSS, Prisma, Node.js. Looking for remote frontend roles..."
                   value={skills}
                   onChange={(e) => setSkills(e.target.value)}
                   className="w-full rounded-2xl border border-gray-200 dark:border-zinc-700 p-4 text-sm bg-gray-50 dark:bg-zinc-800 focus:ring-2 focus:ring-cyan-500 outline-none transition-all"

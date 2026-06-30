@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import { PracticeClient } from '@/components/practice/practice-client'
 import Link from 'next/link'
 import { ArrowLeft, Dumbbell } from 'lucide-react'
@@ -6,8 +7,7 @@ import { ArrowLeft, Dumbbell } from 'lucide-react'
 export const metadata = { title: 'Practice Engine | NexusLearn AI' }
 
 export default async function PracticeEnginePage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
   if (!user) {
     return (
@@ -18,20 +18,19 @@ export default async function PracticeEnginePage() {
   }
 
   // Fetch practice sessions/attempts for the user
-  const { data: attempts } = await supabase
-    .from('quiz_attempts')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
+  const attempts = await prisma.quizAttempt.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: 'desc' }
+  })
 
   // Map to PracticeSession structure
-  const practiceSessions = (attempts || []).map((a) => ({
+  const practiceSessions = attempts.map((a) => ({
     id: a.id,
     topic: a.topic,
-    total_questions: 3, // mock size
+    totalQuestions: 3, // mock size
     score: a.score,
     status: 'completed',
-    created_at: a.created_at
+    createdAt: a.createdAt.toISOString()
   }))
 
   return (

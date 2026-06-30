@@ -1,19 +1,19 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-helpers'
 import { Calendar as CalendarIcon, CheckCircle, Clock, Target, ListTodo, Upload, Zap, CalendarPlus } from 'lucide-react'
 import Link from 'next/link'
+import clsx from 'clsx'
 
 export const metadata = { title: 'Digital Study Planner | NexusLearn AI' }
 
 export default async function PlannerPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
 
-  const { data: assignments } = await supabase
-    .from('assignments')
-    .select('*')
-    .eq('user_id', user?.id)
-    .order('created_at', { ascending: false })
-    .limit(10)
+  const assignments = user ? await prisma.assignment.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: 'desc' },
+    take: 10
+  }) : []
 
   // Calculate progress
   const totalTasks = assignments?.length || 0

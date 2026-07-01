@@ -12,7 +12,9 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function createPrismaClient() {
-  const adapter = new PrismaNeon({ connectionString: connectionString as string })
+  // Provide a fallback dummy string so the adapter doesn't crash on instantiation
+  const safeConnectionString = connectionString || 'postgresql://dummy:dummy@dummy/dummy'
+  const adapter = new PrismaNeon({ connectionString: safeConnectionString })
   return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],

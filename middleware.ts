@@ -2,7 +2,12 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
 export async function middleware(request: NextRequest) {
-  const token = await getToken({ req: request })
+  let token = null
+  try {
+    token = await getToken({ req: request })
+  } catch {
+    // If NEXTAUTH_SECRET is missing or invalid, skip token check gracefully
+  }
 
   // Check for local testing bypass cookie
   const isBypassed = request.cookies.has('auth-bypass')

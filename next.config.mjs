@@ -35,16 +35,7 @@ const pwaConfig = withPWA({
         expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 },
       },
     },
-    // API routes — NetworkFirst
-    {
-      urlPattern: /^https?:\/\/.*\/api\//,
-      handler: 'NetworkFirst',
-      options: {
-        cacheName: 'nexuslearn-api',
-        networkTimeoutSeconds: 10,
-        expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
-      },
-    },
+
     // Google Fonts — CacheFirst
     {
       urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,

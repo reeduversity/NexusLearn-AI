@@ -9,12 +9,12 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function createPrismaClient() {
-  if (!connectionString) {
-    console.warn("DATABASE_URL is undefined. Returning PrismaClient without adapter (will fail on execution if Prisma 7).")
-    return new PrismaClient()
-  }
-
-  const pool = new pg.Pool({ connectionString })
+  const pool = new pg.Pool({ 
+    connectionString,
+    ssl: {
+      rejectUnauthorized: false
+    }
+  })
   const adapter = new PrismaPg(pool)
   return new PrismaClient({
     adapter,

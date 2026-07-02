@@ -21,6 +21,7 @@ export class TutorService {
         messages: [
           { role: 'system', content: `You are an expert AI Concept Tutor. 
 Your goal is to explain complex topics using the Socratic method and relatable analogies.
+All responses must be strictly written in proper English, even if the student asks or context is in another language.
 Do not just give the direct answer immediately. Instead:
 1. Provide a clear, simple analogy to ground the concept.
 2. Explain the core idea concisely based strictly on the provided context.
@@ -49,7 +50,7 @@ Context:\n\n${contextText}` },
       body: JSON.stringify({
         model: 'llama-3.1-8b-instant',
         messages: [
-          { role: 'system', content: `You are an expert Senior Software Engineer and Code Tutor. Debug the provided ${language} code based on the error message. Provide the corrected code and explain the fix clearly.` },
+          { role: 'system', content: `You are an expert Senior Software Engineer and Code Tutor. Debug the provided ${language} code based on the error message. Provide the corrected code and explain the fix clearly. All explanations and comments must be strictly written in proper English.` },
           { role: 'user', content: `Code:\n${code}\n\nError Message:\n${errorMsg}` }
         ],
       }),

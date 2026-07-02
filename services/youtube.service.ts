@@ -31,8 +31,8 @@ export class YouTubeService {
         const transcriptItems = await YoutubeTranscript.fetchTranscript(cleanUrl)
         rawTranscript = transcriptItems.map(item => item.text).join(' ')
       } catch (err: any) {
-        console.error('youtube-transcript fetch failed, using fallback:', err)
-        throw new Error(`Failed to parse YouTube transcript: ${err.message || err}`)
+        console.error('youtube-transcript fetch failed:', err)
+        throw new Error(`Failed to parse YouTube transcript. Please make sure that captions/subtitles are enabled for this video. Details: ${err.message || err}`)
       }
 
       // 2. Summarize the transcript
@@ -50,9 +50,9 @@ export class YouTubeService {
       })
 
       return data
-    } catch (error) {
+    } catch (error: any) {
       console.error('YouTube processing failed:', error)
-      throw new Error('Failed to process YouTube video')
+      throw new Error(error.message || 'Failed to process YouTube video')
     }
   }
 }

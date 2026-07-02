@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth-helpers'
 
 export async function validateSession() {
-  return await getCurrentUser()
+  const user = await getCurrentUser()
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
+  return user
 }
 
 export function apiResponse(data: any, status = 200) {

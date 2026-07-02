@@ -17,14 +17,11 @@ export async function login(formData: FormData) {
 
   const user = await prisma.user.findUnique({
     where: { email },
+    include: { profile: true },
   })
 
   if (!user || !user.passwordHash) {
-    // For local testing bypass — set the cookie and redirect
-    const cookieStore = await cookies()
-    cookieStore.set('auth-bypass', 'true', { path: '/' })
-    revalidatePath('/dashboard')
-    redirect('/dashboard')
+    return { error: 'Invalid email or password' }
   }
 
   const isValid = await bcrypt.compare(password, user.passwordHash)
@@ -32,9 +29,13 @@ export async function login(formData: FormData) {
     return { error: 'Invalid email or password' }
   }
 
-  // Set auth bypass cookie for session (NextAuth handles real sessions via API route)
+  // Set real user session cookies and auth-bypass so middleware lets us through
   const cookieStore = await cookies()
   cookieStore.set('auth-bypass', 'true', { path: '/' })
+  cookieStore.set('auth-user-id', user.id, { path: '/' })
+  cookieStore.set('auth-user-email', user.email, { path: '/' })
+  cookieStore.set('auth-user-name', user.profile?.fullName || 'Student', { path: '/' })
+  
   revalidatePath('/dashboard')
   redirect('/dashboard')
 }
@@ -62,35 +63,37 @@ export async function signup(formData: FormData) {
   // Hash password
   const passwordHash = await bcrypt.hash(password, 12)
 
-  // Create user and profile in a transaction
-  await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
+  // Create user and profile in a batch transaction
+  const userId = crypto.randomUUID()
+  const [user] = await prisma.$transaction([
+    prisma.user.create({
       data: {
+        id: userId,
         email,
         passwordHash,
         rawUserMetaData: { full_name: name, university, course },
       },
-    })
-
-    await tx.profile.create({
+    }),
+    prisma.profile.create({
       data: {
-        id: user.id,
+        id: userId,
         fullName: name || '',
         university: university || null,
         course: course || null,
       },
     })
-  })
+  ])
 
-  const cookieStore = await cookies()
-  cookieStore.set('auth-bypass', 'true', { path: '/' })
-  revalidatePath('/dashboard')
-  redirect('/dashboard')
+  revalidatePath('/login')
+  redirect('/login?signup=success')
 }
 
 export async function logout() {
   const cookieStore = await cookies()
   cookieStore.delete('auth-bypass')
+  cookieStore.delete('auth-user-id')
+  cookieStore.delete('auth-user-email')
+  cookieStore.delete('auth-user-name')
   redirect('/login')
 }
 
@@ -148,7 +151,7 @@ export async function sendPasswordResetLink(formData: FormData) {
       console.log('Reset URL:', resetUrl)
     }
 
-    return { success: true, resetUrl: isSmtpConfigured ? undefined : resetUrl }
+    return { success: true, resetUrl }
   } catch (error) {
     console.error('Error sending email:', error)
     return { error: 'Failed to send reset email. Please try again later.' }
@@ -175,15 +178,15 @@ export async function resetPassword(formData: FormData) {
 
   const passwordHash = await bcrypt.hash(password, 12)
 
-  await prisma.$transaction(async (tx) => {
-    await tx.user.update({
+  await prisma.$transaction([
+    prisma.user.update({
       where: { id: resetToken.userId },
       data: { passwordHash },
-    })
-    await tx.passwordResetToken.delete({
+    }),
+    prisma.passwordResetToken.delete({
       where: { id: resetToken.id },
     })
-  })
+  ])
 
   redirect('/login?reset=success')
 }

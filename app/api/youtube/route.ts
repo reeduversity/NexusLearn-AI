@@ -24,6 +24,8 @@ export async function POST(req: Request) {
     return apiResponse(result, 201)
   } catch (error: any) {
     if (error instanceof z.ZodError) return apiError(error.errors[0].message, 400)
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to process video', error.message === 'Unauthorized' ? 401 : 500)
+    if (error.message === 'Unauthorized') return apiError('Unauthorized', 401)
+    // Pass the real error message through so users/devs can see what actually failed
+    return apiError(error.message || 'Failed to process video', 500)
   }
 }

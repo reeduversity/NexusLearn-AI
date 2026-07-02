@@ -13,22 +13,22 @@ export async function middleware(request: NextRequest) {
   const isBypassed = request.cookies.has('auth-bypass')
   const isAuthenticated = !!token || isBypassed
 
-  // Define protected routes that require authentication
-  const protectedRoutes = ['/dashboard', '/study', '/planner', '/analytics', '/profile']
-  const isProtectedRoute = protectedRoutes.some(route =>
-    request.nextUrl.pathname.startsWith(route)
-  )
+  // Define auth routes
+  const authRoutes = ['/login', '/signup', '/forgot-password', '/reset-password']
+  const isAuthRoute = authRoutes.some(route => request.nextUrl.pathname.startsWith(route))
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
 
-  if (isProtectedRoute && !isAuthenticated) {
+  // Redirect to login if route is not public and user is not authenticated
+  if (!isAuthRoute && !isAuthenticated) {
+    if (isApiRoute) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
   // Redirect logged-in users away from auth pages
-  const authRoutes = ['/login', '/signup', '/forgot-password']
-  const isAuthRoute = authRoutes.includes(request.nextUrl.pathname)
-
   if (isAuthRoute && isAuthenticated) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'

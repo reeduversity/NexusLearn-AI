@@ -8,34 +8,39 @@ import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 
 export async function login(formData: FormData) {
-  const email = (formData.get('email') as string)?.toLowerCase()
-  const password = formData.get('password') as string
+  try {
+    const email = (formData.get('email') as string)?.toLowerCase()
+    const password = formData.get('password') as string
 
-  if (!email || !password) {
-    return { error: 'Email and password are required' }
+    if (!email || !password) {
+      return { error: 'Email and password are required' }
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: { profile: true },
+    })
+
+    if (!user || !user.passwordHash) {
+      return { error: 'Invalid email or password' }
+    }
+
+    const isValid = await bcrypt.compare(password, user.passwordHash)
+    if (!isValid) {
+      return { error: 'Invalid email or password' }
+    }
+
+    // Set real user session cookies and auth-bypass so middleware lets us through
+    const cookieStore = await cookies()
+    cookieStore.set('auth-bypass', 'true', { path: '/' })
+    cookieStore.set('auth-user-id', user.id, { path: '/' })
+    cookieStore.set('auth-user-email', user.email, { path: '/' })
+    cookieStore.set('auth-user-name', user.profile?.fullName || 'Student', { path: '/' })
+  } catch (error: any) {
+    console.error('Login error:', error)
+    return { error: 'Server database connection failed. Please ensure environment variables are configured in Amplify.' }
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email },
-    include: { profile: true },
-  })
-
-  if (!user || !user.passwordHash) {
-    return { error: 'Invalid email or password' }
-  }
-
-  const isValid = await bcrypt.compare(password, user.passwordHash)
-  if (!isValid) {
-    return { error: 'Invalid email or password' }
-  }
-
-  // Set real user session cookies and auth-bypass so middleware lets us through
-  const cookieStore = await cookies()
-  cookieStore.set('auth-bypass', 'true', { path: '/' })
-  cookieStore.set('auth-user-id', user.id, { path: '/' })
-  cookieStore.set('auth-user-email', user.email, { path: '/' })
-  cookieStore.set('auth-user-name', user.profile?.fullName || 'Student', { path: '/' })
-  
   revalidatePath('/dashboard')
   redirect('/dashboard')
 }
@@ -51,38 +56,43 @@ export async function signup(formData: FormData) {
     return { error: 'Email and password are required' }
   }
 
-  // Check if user already exists
-  const existingUser = await prisma.user.findUnique({
-    where: { email },
-  })
-
-  if (existingUser) {
-    return { error: 'An account with this email already exists' }
-  }
-
-  // Hash password
-  const passwordHash = await bcrypt.hash(password, 12)
-
-  // Create user and profile in a batch transaction
-  const userId = crypto.randomUUID()
-  const [user] = await prisma.$transaction([
-    prisma.user.create({
-      data: {
-        id: userId,
-        email,
-        passwordHash,
-        rawUserMetaData: { full_name: name, university, course },
-      },
-    }),
-    prisma.profile.create({
-      data: {
-        id: userId,
-        fullName: name || '',
-        university: university || null,
-        course: course || null,
-      },
+  try {
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
     })
-  ])
+
+    if (existingUser) {
+      return { error: 'An account with this email already exists' }
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 12)
+
+    // Create user and profile in a batch transaction
+    const userId = crypto.randomUUID()
+    await prisma.$transaction([
+      prisma.user.create({
+        data: {
+          id: userId,
+          email,
+          passwordHash,
+          rawUserMetaData: { full_name: name, university, course },
+        },
+      }),
+      prisma.profile.create({
+        data: {
+          id: userId,
+          fullName: name || '',
+          university: university || null,
+          course: course || null,
+        },
+      })
+    ])
+  } catch (error: any) {
+    console.error('Signup error:', error)
+    return { error: 'Server database connection failed. Please ensure environment variables are configured in Amplify.' }
+  }
 
   revalidatePath('/login')
   redirect('/login?signup=success')
@@ -101,26 +111,26 @@ export async function sendPasswordResetLink(formData: FormData) {
   const email = (formData.get('email') as string)?.toLowerCase()
   if (!email) return { error: 'Email is required' }
 
-  const user = await prisma.user.findUnique({ where: { email } })
-  if (!user) {
-    return { error: 'No account found with this email address.' }
-  }
-
-  const token = crypto.randomUUID()
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60) // 1 hour
-
-  await prisma.passwordResetToken.create({
-    data: {
-      userId: user.id,
-      token,
-      expiresAt,
-    },
-  })
-
-  // Send email (In production, ensure SMTP credentials are in .env)
-  const nodemailer = await import('nodemailer')
-  
   try {
+    const user = await prisma.user.findUnique({ where: { email } })
+    if (!user) {
+      return { error: 'No account found with this email address.' }
+    }
+
+    const token = crypto.randomUUID()
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60) // 1 hour
+
+    await prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        token,
+        expiresAt,
+      },
+    })
+
+    // Send email (In production, ensure SMTP credentials are in .env)
+    const nodemailer = await import('nodemailer')
+    
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: Number(process.env.SMTP_PORT) || 587,
@@ -152,9 +162,9 @@ export async function sendPasswordResetLink(formData: FormData) {
     }
 
     return { success: true, resetUrl }
-  } catch (error) {
-    console.error('Error sending email:', error)
-    return { error: 'Failed to send reset email. Please try again later.' }
+  } catch (error: any) {
+    console.error('Password reset link error:', error)
+    return { error: 'Server database connection failed. Please ensure environment variables are configured in Amplify.' }
   }
 }
 

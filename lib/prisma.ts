@@ -3,22 +3,30 @@ import { PrismaNeon } from '@prisma/adapter-neon'
 
 const connectionString = process.env.DATABASE_URL
 
-if (!connectionString) {
-  console.error("CRITICAL ERROR: DATABASE_URL is undefined in lib/prisma.ts")
-}
-
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
 function createPrismaClient() {
-  // Provide a fallback dummy string so the adapter doesn't crash on instantiation
-  const safeConnectionString = connectionString || 'postgresql://dummy:dummy@dummy/dummy'
-  const adapter = new PrismaNeon({ connectionString: safeConnectionString })
-  return new PrismaClient({
-    adapter,
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  })
+  if (!connectionString) {
+    console.warn("DATABASE_URL is undefined. Initializing standard PrismaClient without adapter.")
+    return new PrismaClient({
+      log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    })
+  }
+
+  try {
+    const adapter = new PrismaNeon({ connectionString })
+    return new PrismaClient({
+      adapter,
+      log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    })
+  } catch (err) {
+    console.error("Failed to initialize PrismaNeon adapter. Initializing standard PrismaClient:", err)
+    return new PrismaClient({
+      log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    })
+  }
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient()

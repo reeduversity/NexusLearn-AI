@@ -11,7 +11,7 @@ export async function GET() {
     const tests = await prisma.mockTest.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } })
     return apiResponse(tests)
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to fetch mock tests', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to fetch mock tests'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }
 
@@ -24,6 +24,6 @@ export async function POST(req: Request) {
     return apiResponse(test, 201)
   } catch (error: any) {
     if (error instanceof z.ZodError) return apiError(error.errors[0].message, 400)
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to generate mock test', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to generate mock test'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }

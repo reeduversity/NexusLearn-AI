@@ -8,7 +8,7 @@ export async function GET() {
     const scholarships = await prisma.scholarship.findMany({ orderBy: { createdAt: 'desc' } })
     return apiResponse(scholarships)
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to fetch scholarships', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to fetch scholarships'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }
 
@@ -20,6 +20,6 @@ export async function POST(req: Request) {
     await prisma.searchLog.create({ data: { userId: user.id, query: 'scholarship_search', resultsCount: matches?.length || 0 } }).catch(() => {})
     return apiResponse(matches)
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to find scholarship matches', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to find scholarship matches'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }

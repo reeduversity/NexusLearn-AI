@@ -16,7 +16,7 @@ export async function GET() {
     })
     return apiResponse(projects)
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to fetch projects', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to fetch projects'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }
 
@@ -30,6 +30,6 @@ export async function POST(req: Request) {
     return apiResponse(project, 201)
   } catch (error: any) {
     if (error instanceof z.ZodError) return apiError(error.errors[0].message, 400)
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to create project', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to create project'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }

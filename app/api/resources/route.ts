@@ -10,7 +10,7 @@ export async function GET() {
     const resources = await prisma.resource.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } })
     return apiResponse(resources)
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to fetch resources', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to fetch resources'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }
 
@@ -23,6 +23,6 @@ export async function POST(req: Request) {
     return apiResponse(resource, 201)
   } catch (error: any) {
     if (error instanceof z.ZodError) return apiError(error.errors[0].message, 400)
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to save resource', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to save resource'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }

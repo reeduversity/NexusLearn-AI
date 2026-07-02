@@ -8,7 +8,7 @@ export async function GET() {
     const notes = await prisma.note.findMany({ where: { userId: user.id }, select: { id: true, title: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 10 })
     return apiResponse({ weaknesses, notes })
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to fetch revision data', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to fetch revision data'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }
 
@@ -19,6 +19,6 @@ export async function POST(req: Request) {
     await prisma.studySession.create({ data: { userId: user.id, durationMinutes: body.duration_minutes || 30 } })
     return apiResponse({ success: true }, 201)
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to log revision session', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to log revision session'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }

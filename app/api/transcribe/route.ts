@@ -12,6 +12,6 @@ export async function POST(req: Request) {
     const text = await ParserService.parseFile(buffer, file.type)
     return apiResponse({ text })
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to transcribe file', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to transcribe file'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }

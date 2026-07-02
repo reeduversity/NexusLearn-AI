@@ -19,6 +19,6 @@ export async function GET(req: Request) {
     try { await prisma.searchLog.create({ data: { userId: user.id, query, resultsCount: results.length } }) } catch {}
     return apiResponse(results)
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to perform search', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to perform search'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }

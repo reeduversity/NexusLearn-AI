@@ -11,7 +11,7 @@ export async function GET() {
     const sessions = await prisma.youtubeSession.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } })
     return apiResponse(sessions)
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to fetch sessions', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to fetch sessions'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }
 

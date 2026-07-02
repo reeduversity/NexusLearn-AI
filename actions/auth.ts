@@ -31,11 +31,20 @@ export async function login(formData: FormData) {
     }
 
     // Set real user session cookies and auth-bypass so middleware lets us through
+    // IMPORTANT: secure + sameSite flags are required for cookies to work on HTTPS (Amplify)
     const cookieStore = await cookies()
-    cookieStore.set('auth-bypass', 'true', { path: '/' })
-    cookieStore.set('auth-user-id', user.id, { path: '/' })
-    cookieStore.set('auth-user-email', user.email, { path: '/' })
-    cookieStore.set('auth-user-name', user.profile?.fullName || 'Student', { path: '/' })
+    const isProduction = process.env.NODE_ENV === 'production'
+    const cookieOptions = {
+      path: '/',
+      httpOnly: true,
+      secure: isProduction,         // Required for HTTPS on Amplify
+      sameSite: 'lax' as const,     // Ensures cookies are sent with same-origin navigations
+      maxAge: 60 * 60 * 24 * 30,    // 30 days
+    }
+    cookieStore.set('auth-bypass', 'true', cookieOptions)
+    cookieStore.set('auth-user-id', user.id, cookieOptions)
+    cookieStore.set('auth-user-email', user.email, cookieOptions)
+    cookieStore.set('auth-user-name', user.profile?.fullName || 'Student', cookieOptions)
   } catch (error: any) {
     console.error('Login error:', error)
     return { error: 'Server database connection failed. Please ensure environment variables are configured in Amplify.' }

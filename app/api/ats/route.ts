@@ -17,7 +17,7 @@ export async function GET() {
     })
     return apiResponse(reports)
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to fetch ATS reports', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to fetch ATS reports'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }
 

@@ -13,6 +13,6 @@ export async function POST(req: Request) {
     const result = await PyqService.analyzePyqs(texts)
     return apiResponse(result)
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to analyze PYQs', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to analyze PYQs'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }

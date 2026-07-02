@@ -7,6 +7,6 @@ export async function GET() {
     const plans = await prisma.studyPlan.findMany({ where: { userId: user.id }, include: { assignments: true }, orderBy: { createdAt: 'desc' } })
     return apiResponse(plans)
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to fetch plans', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to fetch plans'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }

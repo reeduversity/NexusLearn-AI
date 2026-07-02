@@ -8,6 +8,6 @@ export async function POST(req: Request) {
     const response = await VoiceService.generateConversationalResponse(body.text || '', body.context || [])
     return apiResponse({ response })
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to process voice', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to process voice'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }

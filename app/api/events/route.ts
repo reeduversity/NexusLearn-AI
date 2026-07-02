@@ -7,6 +7,6 @@ export async function GET() {
     const events = await prisma.event.findMany({ orderBy: { date: 'asc' } })
     return apiResponse(events)
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to fetch events', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to fetch events'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }

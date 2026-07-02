@@ -11,6 +11,6 @@ export async function POST(req: Request) {
     const result = await FinanceService.analyzeBudget(income, expenses)
     return apiResponse(result)
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to analyze budget', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to analyze budget'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }

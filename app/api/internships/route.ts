@@ -8,7 +8,7 @@ export async function GET() {
     const internships = await prisma.internship.findMany({ orderBy: { createdAt: 'desc' } })
     return apiResponse(internships)
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to fetch internships', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to fetch internships'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }
 
@@ -19,6 +19,6 @@ export async function POST(req: Request) {
     const matches = await InternshipService.findMatches(body.skills || '')
     return apiResponse(matches)
   } catch (error: any) {
-    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : 'Failed to find internship matches', error.message === 'Unauthorized' ? 401 : 500)
+    return apiError(error.message === 'Unauthorized' ? 'Unauthorized' : (error.message || 'Failed to find internship matches'), error.message === 'Unauthorized' ? 401 : 500)
   }
 }

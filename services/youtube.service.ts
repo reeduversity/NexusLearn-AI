@@ -60,15 +60,13 @@ export class YouTubeService {
       if (fetchError || !rawTranscript) {
         const errMsg = fetchError?.message || String(fetchError)
         
-        // Only show the 'no captions' error if it genuinely says no captions or disabled
-        const isNoCaptions = errMsg.toLowerCase().includes('no captions') || 
-                             errMsg.toLowerCase().includes('disabled') ||
-                             errMsg.toLowerCase().includes('no transcript available')
+        // youtube-transcript throws "Transcript is disabled on this video" when it genuinely lacks captions 
+        // OR when YouTube blocks the server IP (very common on AWS/Vercel/cloud hosting).
+        throw new Error(`Could not fetch transcript from YouTube. This usually happens for one of two reasons:
+1. The video does not have captions/subtitles enabled.
+2. YouTube is temporarily blocking our server's connection (common on cloud hosting like AWS).
 
-        if (isNoCaptions) {
-          throw new Error(`This video does not have captions/subtitles enabled. YouTube Lecture AI requires captions to generate notes. Please try a video that has subtitles.`)
-        }
-        throw new Error(`Could not fetch transcript from YouTube. The server might be temporarily blocked by YouTube, or the video is private. Please try another video or try again later. (Error: ${errMsg})`)
+Please try another video, or try again later. (Dev detail: ${errMsg})`)
       }
 
       // 3. Summarize the transcript using Groq AI
